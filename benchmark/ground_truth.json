@@ -1,0 +1,378 @@
+{
+  "version": 1,
+  "notes": "Planted barriers and known task outcomes for the Persona Lab benchmark. 'possible' is whether the task can be completed by that persona with the tools the simulation gives them. A finding matches a barrier when its title+detail contain one of the barrier's 'anchors' AND one of its 'kinds' (case-insensitive), and it came from a persona listed in 'personas'.",
+  "personas": [
+    "keyboard",
+    "screen_reader",
+    "color_blind",
+    "low_vision"
+  ],
+  "tasks": [
+    {
+      "id": "hotel-phone",
+      "site": "hotel",
+      "start": "index.html",
+      "goal": "Find the hotel's phone number",
+      "success": {
+        "answer_contains": [
+          "555 0123",
+          "5550123"
+        ]
+      },
+      "possible": {
+        "keyboard": true,
+        "screen_reader": true,
+        "color_blind": true,
+        "low_vision": true
+      }
+    },
+    {
+      "id": "hotel-book",
+      "site": "hotel",
+      "start": "index.html",
+      "goal": "Start booking a room using the 'Book a room' button on the home page",
+      "success": {
+        "url_contains": [
+          "booking=1"
+        ]
+      },
+      "possible": {
+        "keyboard": false,
+        "screen_reader": true,
+        "color_blind": true,
+        "low_vision": true
+      }
+    },
+    {
+      "id": "shop-green-mug",
+      "site": "shop",
+      "start": "index.html",
+      "goal": "Add the green mug to the cart",
+      "success": {
+        "url_contains": [
+          "item=green"
+        ]
+      },
+      "possible": {
+        "keyboard": true,
+        "screen_reader": false,
+        "color_blind": false,
+        "low_vision": true
+      }
+    },
+    {
+      "id": "clinic-book",
+      "site": "clinic",
+      "start": "index.html",
+      "goal": "Book an appointment for any day next week (name: Sara Ahmed, mobile: 050 123 4567)",
+      "success": {
+        "url_contains": [
+          "confirmed.html"
+        ]
+      },
+      "possible": {
+        "keyboard": false,
+        "screen_reader": true,
+        "color_blind": true,
+        "low_vision": true
+      }
+    },
+    {
+      "id": "library-hours",
+      "site": "library",
+      "start": "index.html",
+      "goal": "Find what time the library opens on Saturday",
+      "success": {
+        "answer_contains": [
+          "10:00",
+          "10 am",
+          "10am",
+          "10 a.m"
+        ]
+      },
+      "possible": {
+        "keyboard": true,
+        "screen_reader": true,
+        "color_blind": true,
+        "low_vision": true
+      }
+    }
+  ],
+  "barriers": [
+    {
+      "id": "hotel-book-div",
+      "site": "hotel",
+      "personas": [
+        "keyboard"
+      ],
+      "wcag": "2.1.1",
+      "summary": "'Book a room' is a div with a click handler: not reachable or operable by keyboard",
+      "anchors": [
+        "book a room",
+        "book"
+      ],
+      "kinds": [
+        "keyboard",
+        "tab",
+        "focus",
+        "reach",
+        "div",
+        "not a button",
+        "clickable"
+      ]
+    },
+    {
+      "id": "hotel-focus-hidden",
+      "site": "hotel",
+      "personas": [
+        "keyboard"
+      ],
+      "wcag": "2.4.7",
+      "summary": "Link focus outline removed",
+      "anchors": [
+        "focus"
+      ],
+      "kinds": [
+        "visible",
+        "outline",
+        "indicator",
+        "can't see",
+        "cannot see",
+        "invisible"
+      ]
+    },
+    {
+      "id": "hotel-img-alt",
+      "site": "hotel",
+      "personas": [
+        "screen_reader"
+      ],
+      "wcag": "1.1.1",
+      "summary": "Hero image has no alt text",
+      "anchors": [
+        "image",
+        "img",
+        "hero"
+      ],
+      "kinds": [
+        "alt",
+        "file name",
+        "filename",
+        "description",
+        "unlabeled",
+        "unlabelled"
+      ]
+    },
+    {
+      "id": "hotel-low-contrast-hint",
+      "site": "hotel",
+      "personas": [
+        "low_vision"
+      ],
+      "wcag": "1.4.3",
+      "summary": "Light grey 'Best rates guaranteed' text",
+      "anchors": [
+        "best rates",
+        "grey",
+        "gray",
+        "hint"
+      ],
+      "kinds": [
+        "contrast",
+        "read",
+        "faint",
+        "light",
+        "pale"
+      ]
+    },
+    {
+      "id": "hotel-status-color",
+      "site": "hotel",
+      "personas": [
+        "color_blind"
+      ],
+      "wcag": "1.4.1",
+      "summary": "Room/restaurant availability shown only by red/green dots",
+      "anchors": [
+        "dot",
+        "status",
+        "available",
+        "restaurant",
+        "rooms"
+      ],
+      "kinds": [
+        "color",
+        "colour",
+        "red",
+        "green",
+        "same",
+        "tell"
+      ]
+    },
+    {
+      "id": "hotel-email-unlabeled",
+      "site": "hotel",
+      "personas": [
+        "screen_reader"
+      ],
+      "wcag": "3.3.2",
+      "summary": "Email field has only a placeholder",
+      "anchors": [
+        "email",
+        "field",
+        "edit text",
+        "input"
+      ],
+      "kinds": [
+        "label",
+        "placeholder"
+      ]
+    },
+    {
+      "id": "hotel-send-unnamed",
+      "site": "hotel",
+      "personas": [
+        "screen_reader"
+      ],
+      "wcag": "4.1.2",
+      "summary": "Icon-only newsletter button has no accessible name",
+      "anchors": [
+        "button"
+      ],
+      "kinds": [
+        "no name",
+        "unnamed",
+        "no label",
+        "unlabeled",
+        "unlabelled",
+        "just \"button\"",
+        "only as 'button'",
+        "announced only",
+        "discernible"
+      ]
+    },
+    {
+      "id": "shop-color-only-variants",
+      "site": "shop",
+      "personas": [
+        "screen_reader",
+        "color_blind"
+      ],
+      "wcag": "1.4.1",
+      "summary": "Mug variants are identified only by color; names and buttons are identical",
+      "anchors": [
+        "mug",
+        "variant",
+        "product",
+        "swatch",
+        "add to cart"
+      ],
+      "kinds": [
+        "color",
+        "colour",
+        "identical",
+        "same",
+        "tell apart",
+        "distinguish",
+        "which one",
+        "no name"
+      ]
+    },
+    {
+      "id": "shop-cart-unnamed",
+      "site": "shop",
+      "personas": [
+        "screen_reader"
+      ],
+      "wcag": "2.4.4",
+      "summary": "Icon-only cart link has no accessible name",
+      "anchors": [
+        "cart",
+        "link"
+      ],
+      "kinds": [
+        "no name",
+        "unnamed",
+        "no label",
+        "unlabeled",
+        "unlabelled",
+        "url",
+        "cart.html",
+        "discernible"
+      ]
+    },
+    {
+      "id": "shop-tiny-text",
+      "site": "shop",
+      "personas": [
+        "low_vision"
+      ],
+      "wcag": "1.4.3",
+      "summary": "11px light grey returns/shipping text",
+      "anchors": [
+        "returns",
+        "shipping",
+        "ships",
+        "small print",
+        "fine print",
+        "small"
+      ],
+      "kinds": [
+        "small",
+        "tiny",
+        "read",
+        "contrast",
+        "faint"
+      ]
+    },
+    {
+      "id": "clinic-datepicker-mouse-only",
+      "site": "clinic",
+      "personas": [
+        "keyboard"
+      ],
+      "wcag": "2.1.1",
+      "summary": "Day picker is made of divs: no keyboard access",
+      "anchors": [
+        "day",
+        "date",
+        "mon",
+        "tue",
+        "wed",
+        "calendar",
+        "picker"
+      ],
+      "kinds": [
+        "keyboard",
+        "tab",
+        "focus",
+        "reach",
+        "can't select",
+        "cannot select",
+        "clickable"
+      ]
+    },
+    {
+      "id": "clinic-error-color-only",
+      "site": "clinic",
+      "personas": [
+        "color_blind"
+      ],
+      "wcag": "1.4.1 / 3.3.1",
+      "summary": "Form errors shown only by a red border, with no message",
+      "anchors": [
+        "error",
+        "border",
+        "field",
+        "required"
+      ],
+      "kinds": [
+        "color",
+        "colour",
+        "red",
+        "no message",
+        "only"
+      ]
+    }
+  ]
+}

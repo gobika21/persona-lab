@@ -1,0 +1,14 @@
+# One-click deploy on Render (https://render.com): New > Blueprint > pick this repo.
+services:
+  - type: web
+    name: persona-lab
+    runtime: docker
+    plan: starter          # headless Chromium needs ~1 GB RAM; the free plan is too small
+    healthCheckPath: /api/health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false        # set it in the Render dashboard
+      - key: PUBLIC_MODE
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"

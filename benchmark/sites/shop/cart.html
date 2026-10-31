@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Your cart – Kiln &amp; Co.</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;color:#1d1d1f}header{padding:16px 32px;border-bottom:1px solid #ddd}main{padding:32px}a{color:#1a5fd0}</style></head>
+<body>
+  <header><a href="index.html">Kiln &amp; Co.</a></header>
+  <main>
+    <h1>Your cart</h1>
+    <p id="line">Your cart is empty.</p>
+    <p><a href="index.html">Continue shopping</a></p>
+  </main>
+  <script>
+    const item = new URLSearchParams(location.search).get("item");
+    if (item) document.getElementById("line").textContent = "1 × Classic mug (" + item + ") — AED 45";
+  </script>
+</body>
+</html>

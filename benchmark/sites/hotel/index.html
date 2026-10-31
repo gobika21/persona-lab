@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sunset Hotel</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; color: #222; background: #fffaf3; }
+  header { background: #b3261e; color: #fff; padding: 16px 32px; display: flex; gap: 32px; align-items: center; }
+  header strong { font-size: 20px; }
+  header a { color: #fff; text-decoration: none; font-family: sans-serif; margin-right: 18px; }
+  a:focus { outline: none; }                               /* PLANTED: hotel-focus-hidden */
+  main { padding: 32px; max-width: 760px; }
+  h1 { font-size: 34px; margin: 0 0 16px; }
+  .hero { width: 100%; max-width: 640px; border-radius: 12px; display: block; }
+  .hint { color: #b9b9b9; font-size: 14px; font-family: sans-serif; }  /* PLANTED: hotel-low-contrast-hint */
+  .book { display: inline-block; background: #1f6f3f; color: #fff; padding: 12px 22px; cursor: pointer; border-radius: 8px; font-family: sans-serif; font-weight: bold; }
+</style></head>
+<body>
+  <header>
+    <strong>Sunset Hotel</strong>
+    <nav><a href="index.html">Home</a><a href="rooms.html">Rooms</a><a href="contact.html">Contact</a></nav>
+  </header>
+  <main>
+    <h1>Welcome to Sunset Hotel</h1>
+    <img class="hero" src="hero.svg">                       <!-- PLANTED: hotel-img-alt -->
+    <p>Sea-view rooms on Jumeirah Beach, five minutes from the metro.</p>
+    <p class="hint">Best rates guaranteed when you book direct.</p>
+    <!-- PLANTED: hotel-book-div (mouse-only "button") -->
+    <div class="book" onclick="location.href='contact.html?booking=1'">Book a room</div>
+  </main>
+</body>
+</html>

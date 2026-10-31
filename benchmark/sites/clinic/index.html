@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Marina Family Clinic – Book an appointment</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; color: #1b2330; background: #f5f8fb; }
+  header { background: #0f4c81; color: #fff; padding: 16px 32px; font-weight: 700; }
+  main { padding: 32px; max-width: 640px; }
+  label { display: block; font-weight: 600; margin-top: 16px; }
+  input { display: block; margin-top: 6px; padding: 10px; width: 100%; max-width: 360px; font: inherit; border: 2px solid #9aa6b2; border-radius: 8px; }
+  input.err { border-color: #d32f2f; }                         /* PLANTED: clinic-error-color-only */
+  input:focus-visible, button:focus-visible { outline: 3px solid #f0a500; outline-offset: 2px; }
+  .days { display: grid; grid-template-columns: repeat(5, 64px); gap: 8px; margin-top: 8px; }
+  .day { padding: 10px 0; text-align: center; background: #fff; border: 2px solid #c9d3dd; border-radius: 8px; cursor: pointer; }
+  .day.sel { background: #0f4c81; color: #fff; border-color: #0f4c81; }
+  button.submit { margin-top: 24px; padding: 12px 22px; font: inherit; font-weight: 700; color: #fff; background: #0f4c81; border: 0; border-radius: 8px; cursor: pointer; }
+</style></head>
+<body>
+  <header>Marina Family Clinic</header>
+  <main>
+    <h1>Book an appointment</h1>
+    <form id="f" novalidate>
+      <label for="name">Full name</label>
+      <input id="name" autocomplete="name">
+      <label for="phone">Mobile number</label>
+      <input id="phone" type="tel" autocomplete="tel">
+      <p style="font-weight:600;margin:20px 0 0">Choose a day next week</p>
+      <!-- PLANTED: clinic-datepicker-mouse-only (divs with click handlers, no keyboard support) -->
+      <div class="days" id="days">
+        <div class="day" data-d="Mon">Mon</div><div class="day" data-d="Tue">Tue</div><div class="day" data-d="Wed">Wed</div>
+        <div class="day" data-d="Thu">Thu</div><div class="day" data-d="Fri">Fri</div>
+      </div>
+      <button class="submit" type="submit">Confirm booking</button>
+    </form>
+  </main>
+  <script>
+    let day = null;
+    document.querySelectorAll(".day").forEach((d) => d.addEventListener("click", () => {
+      document.querySelectorAll(".day").forEach((x) => x.classList.remove("sel"));
+      d.classList.add("sel"); day = d.dataset.d;
+    }));
+    document.getElementById("f").addEventListener("submit", (e) => {
+      e.preventDefault();
+      let ok = true;
+      ["name", "phone"].forEach((id) => {
+        const el = document.getElementById(id);
+        const bad = !el.value.trim();
+        el.classList.toggle("err", bad);   // red border only: no message
+        if (bad) ok = false;
+      });
+      if (!day) ok = false;
+      if (ok) location.href = "confirmed.html?day=" + day;
+    });
+  </script>
+</body>
+</html>

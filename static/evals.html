@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evals: Persona Lab</title>
+  <meta name="description" content="How reliable are the Persona Lab agents? Scored on a benchmark of websites with planted accessibility barriers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Persona Lab home">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 16 16"><circle cx="5" cy="6" r="2.2" fill="currentColor"/><circle cx="11" cy="6" r="2.2" fill="currentColor" opacity=".55"/><path d="M1.5 13.5c.6-2.2 2-3.3 3.5-3.3s2.9 1.1 3.5 3.3M8 13.5c.6-2.2 1.6-3.3 3-3.3s2.6 1.1 3.3 3.3" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+        Persona Lab
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="/">Test a site</a>
+        <a href="/evals" aria-current="page">Evals</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="wrap">
+    <div class="page-head">
+      <h1>Can the agents be trusted?</h1>
+      <p>Every agent version is scored on a benchmark of <strong>4 demo websites</strong> with <strong>12 planted barriers</strong> and <strong>5 tasks</strong> whose outcome is known for each persona, including an accessible control site to catch false alarms. Agents are compared with what page rules alone can find.</p>
+    </div>
+
+    <div class="toolbar">
+      <label for="run-select" class="small muted">Showing run</label>
+      <select class="select" id="run-select"></select>
+      <span class="small muted" id="run-meta"></span>
+    </div>
+
+    <section class="tiles" id="tiles" aria-label="Key metrics"></section>
+    <div id="callout"></div>
+
+    <div class="grid-2">
+      <section class="card" aria-labelledby="cmp-h">
+        <h2 id="cmp-h">Barrier recall by run</h2>
+        <p class="sub">Share of the 12 planted barriers each run found.</p>
+        <ul class="bars" id="cmp-bars"></ul>
+      </section>
+      <section class="card" aria-labelledby="pp-h">
+        <h2 id="pp-h">Recall by persona</h2>
+        <p class="sub" id="pp-sub">Planted barriers each persona was expected to hit, and found.</p>
+        <ul class="bars" id="pp-bars"></ul>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:12px" aria-labelledby="mx-h">
+      <h2 id="mx-h">Which barriers were found</h2>
+      <p class="sub">Each planted barrier, who it affects, and whether each run detected it.</p>
+      <div class="table-wrap"><table class="matrix" id="matrix"></table></div>
+    </section>
+
+    <section class="card" style="margin-top:12px" aria-labelledby="out-h" id="outcomes-card" hidden>
+      <h2 id="out-h">Task outcomes</h2>
+      <p class="sub">Did the agent reach the right verdict, and did it really finish? "Verified" is checked from the pages it reached and the answer it gave, not from what it claims.</p>
+      <div class="table-wrap"><table class="matrix" id="outcomes"></table></div>
+    </section>
+
+    <section class="section" aria-labelledby="m-h" style="padding-top:40px">
+      <div class="section-head"><div><h2 id="m-h">Method</h2></div></div>
+      <div class="method">
+        <div class="card"><h3>Planted barriers</h3><p>Small realistic sites (hotel, shop, clinic, library) with known problems: a mouse-only "Book" button, color-only product variants, a day picker without keyboard access, unlabeled fields and more. The library site is fully accessible, so anything reported there is a false alarm.</p></div>
+        <div class="card"><h3>Objective outcomes</h3><p>Each task has a success check, such as "reached <code>confirmed.html</code>" or "answer contains <code>10:00</code>". That separates agents that finish from agents that only claim to (false success).</p></div>
+        <div class="card"><h3>Matching findings</h3><p>A finding counts when it names the right element and the right kind of problem (keyword rules in <code>ground_truth.json</code>), or optionally via an LLM judge. Run it yourself: <code>python -m personalab.evals agents --label my-change</code>.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot"><div class="wrap">Results are JSON files in <code>evals/results/</code>; this page reads them as-is.</div></footer>
+  <script src="/static/common.js"></script>
+  <script src="/static/evals.js"></script>
+</body>
+</html>

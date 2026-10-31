@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Persona Lab: can everyone use your website?</title>
+  <meta name="description" content="AI agents test your website the way disabled people actually browse: keyboard only, with a screen reader, color blind, and at 200% zoom.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Persona Lab home">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 16 16"><circle cx="5" cy="6" r="2.2" fill="currentColor"/><circle cx="11" cy="6" r="2.2" fill="currentColor" opacity=".55"/><path d="M1.5 13.5c.6-2.2 2-3.3 3.5-3.3s2.9 1.1 3.5 3.3M8 13.5c.6-2.2 1.6-3.3 3-3.3s2.6 1.1 3.3 3.3" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+        Persona Lab
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <span class="status-chip" id="status-chip" role="status"></span>
+        <a href="/" aria-current="page">Test a site</a>
+        <a href="/evals">Evals</a>
+        <button type="button" id="settings-btn">Settings</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ================= START ================= -->
+    <div id="view-start">
+      <section class="hero wrap">
+        <span class="eyebrow"><i aria-hidden="true"></i>AI agents for accessibility testing</span>
+        <h1>Can everyone use your website?</h1>
+        <p class="lede">Four AI agents try a real task on your site the way disabled people browse: <strong>keyboard only</strong>, with a <strong>screen reader</strong>, with <strong>color blindness</strong>, and at <strong>200% zoom</strong>. You see exactly where each one gets stuck.</p>
+
+        <form class="run-form" id="run-form" novalidate>
+          <label class="field"><span>Website</span>
+            <input class="input" id="url" type="text" inputmode="url" autocomplete="url" placeholder="https://example.com" required></label>
+          <label class="field"><span>Task</span>
+            <input class="input" id="goal" type="text" placeholder="e.g. Book a room" required></label>
+          <button class="btn btn-primary btn-lg" type="submit" id="run-btn">Run test</button>
+        </form>
+        <p class="form-msg" id="form-msg" role="status" aria-live="polite"></p>
+        <div class="demos" id="demos"><span class="label">No site handy? Try a demo:</span></div>
+      </section>
+
+      <section class="section wrap" aria-labelledby="who-h">
+        <div class="section-head">
+          <div>
+            <h2 id="who-h">The four testers</h2>
+            <p>Each agent only gets the senses and controls that person has. The screen-reader agent never sees a pixel.</p>
+          </div>
+        </div>
+        <div class="personas" id="personas"></div>
+      </section>
+
+      <section class="section wrap" aria-labelledby="proof-h" id="proof" hidden>
+        <div class="section-head">
+          <div>
+            <h2 id="proof-h">Measured, not guessed</h2>
+            <p>The agents are scored against a benchmark of websites with planted barriers and known outcomes.</p>
+          </div>
+          <a class="cta-link" href="/evals">See the evaluation →</a>
+        </div>
+        <div class="proof" id="proof-stats"></div>
+      </section>
+    </div>
+
+    <!-- ================= RUN ================= -->
+    <div id="view-run" class="wrap" hidden>
+      <div class="run-top">
+        <div>
+          <a class="back" href="/" id="back"><span aria-hidden="true">←</span> New test</a>
+          <p class="run-task" id="run-task"></p>
+          <p class="run-url" id="run-url"></p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-sm" id="stop-btn">Stop</button>
+          <a class="btn btn-sm" id="report-btn" hidden download>Download report</a>
+        </div>
+      </div>
+
+      <div class="verdict" id="verdict" aria-live="polite"></div>
+      <div class="progress" aria-hidden="true"><i id="progress-bar"></i></div>
+
+      <section aria-label="Agents" style="margin-top:24px">
+        <div class="agents" id="agents"></div>
+      </section>
+
+      <section class="barriers" id="barriers" hidden aria-labelledby="barriers-h">
+        <h2 id="barriers-h">What blocked people</h2>
+        <p class="muted small" id="barriers-sub"></p>
+        <ul class="blist" id="blist"></ul>
+      </section>
+      <div style="height:64px"></div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">Persona Lab: AI agents that test the web the way disabled people use it. Automated agents find many, not all, barriers. Test with real users too.</div>
+  </footer>
+
+  <!-- steps drawer -->
+  <dialog class="drawer" id="drawer" aria-labelledby="drawer-h">
+    <div class="drawer-head">
+      <h2 id="drawer-h">Steps</h2>
+      <div style="display:flex;gap:8px">
+        <a class="btn btn-sm" id="drawer-report" download>Report</a>
+        <form method="dialog"><button class="btn btn-sm">Close</button></form>
+      </div>
+    </div>
+    <div class="drawer-body"><p class="muted small" id="drawer-sub" style="margin-top:12px"></p><ol class="steps" id="steps"></ol></div>
+  </dialog>
+
+  <!-- settings -->
+  <dialog class="modal" id="settings" aria-labelledby="settings-h">
+    <h2 id="settings-h">Use your own Claude API key</h2>
+    <p>Optional. The public demo includes a few free runs per day. With your own key from
+      <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com<span class="sr-only"> (opens in a new tab)</span></a>
+      there's no limit. It stays in your browser and is only sent with your own runs; the server never stores it.</p>
+    <label class="field"><span>API key</span><input class="input" id="key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
+    <label class="check"><input type="checkbox" id="key-remember"> Remember on this device</label>
+    <p id="settings-msg" role="status" aria-live="polite" style="margin:10px 0 0"></p>
+    <div class="row">
+      <button type="button" class="btn" id="key-clear">Remove key</button>
+      <form method="dialog"><button class="btn">Close</button></form>
+      <button type="button" class="btn btn-primary" id="key-save">Save</button>
+    </div>
+  </dialog>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
