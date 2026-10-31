@@ -16,11 +16,12 @@
     <div class="wrap">
       <a class="brand" href="/" aria-label="Persona Lab home">
         <span class="mark" aria-hidden="true"><svg viewBox="0 0 16 16"><circle cx="5" cy="6" r="2.2" fill="currentColor"/><circle cx="11" cy="6" r="2.2" fill="currentColor" opacity=".55"/><path d="M1.5 13.5c.6-2.2 2-3.3 3.5-3.3s2.9 1.1 3.5 3.3M8 13.5c.6-2.2 1.6-3.3 3-3.3s2.6 1.1 3.3 3.3" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
-        Persona Lab
+        <span class="brand-name">Persona Lab</span>
       </a>
       <nav class="nav-links" aria-label="Main">
         <span class="status-chip" id="status-chip" role="status"></span>
-        <a href="/" aria-current="page">Test a site</a>
+        <a href="/" id="nav-test" aria-current="page">Test a site</a>
+        <a href="/#history" id="nav-history">History</a>
         <a href="/evals">Evals</a>
         <button type="button" id="settings-btn">Settings</button>
       </nav>
@@ -76,11 +77,12 @@
           <p class="run-task" id="run-task"></p>
           <p class="run-url" id="run-url"></p>
         </div>
-        <div style="display:flex;gap:8px">
+        <div class="run-actions">
           <button type="button" class="btn btn-sm" id="stop-btn">Stop</button>
-          <a class="btn btn-sm" id="report-btn" hidden download>Download report</a>
+          <div id="dl-slot"></div>
         </div>
       </div>
+      <p class="saved-note small" id="saved-note" role="status" aria-live="polite"></p>
 
       <div class="verdict" id="verdict" aria-live="polite"></div>
       <div class="progress" aria-hidden="true"><i id="progress-bar"></i></div>
@@ -94,6 +96,26 @@
         <p class="muted small" id="barriers-sub"></p>
         <ul class="blist" id="blist"></ul>
       </section>
+      <div style="height:64px"></div>
+    </div>
+
+    <!-- ================= HISTORY ================= -->
+    <div id="view-history" class="wrap" hidden>
+      <div class="page-head">
+        <h1 id="history-h" tabindex="-1">History</h1>
+        <p>Your finished tests are saved <strong>in this browser only</strong>, so you can reopen and download them later. Nothing is kept on our server. Clearing this site's data in your browser deletes them. Up to 30 tests are kept; the oldest are removed first.</p>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-sm" id="import-btn">Import JSON</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+        <button type="button" class="btn btn-sm" id="clear-btn">Clear all</button>
+      </div>
+      <p class="small muted" id="history-msg" role="status" aria-live="polite"></p>
+      <ul class="hlist" id="hlist" aria-labelledby="history-h"></ul>
+      <div class="callout" id="history-empty" hidden>
+        <h2>No saved tests yet</h2>
+        <p class="small muted">When a test finishes it appears here automatically. <a href="/">Run a test</a>, or import a JSON file you downloaded earlier.</p>
+      </div>
       <div style="height:64px"></div>
     </div>
   </main>
@@ -131,6 +153,7 @@
   </dialog>
 
   <script src="/static/common.js"></script>
+  <script src="/static/history.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

@@ -240,3 +240,36 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .4); }
 .method .card p { font-size: .9rem; color: var(--ink-2); margin-top: 6px; }
 .bitem .also { font-size: .78rem; color: var(--ink-3); margin-top: 8px; }
 @media (max-width: 480px) { .nav-links a, .nav-links button { padding: 8px 8px; font-size: .85rem; } .brand { font-size: .95rem; } }
+
+/* ---------- downloads + history ---------- */
+.run-actions { display: flex; gap: 8px; align-items: center; }
+.saved-note { color: var(--ink-2); min-height: 1.4em; margin-top: 4px; }
+.screen .noshot { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: .85rem; color: var(--ink-3); }
+details.dl { position: relative; }
+details.dl > summary { list-style: none; }
+details.dl > summary::-webkit-details-marker { display: none; }
+.dl-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 15; width: min(300px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; display: grid; gap: 2px; }
+.dl-menu button { font: inherit; font-size: .9rem; font-weight: 600; text-align: left; color: var(--ink); background: transparent; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.dl-menu button:hover { background: var(--bg); }
+.dl-menu small { display: block; font-weight: 400; font-size: .78rem; color: var(--ink-2); }
+.hlist { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.hitem { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; display: flex; gap: 16px; justify-content: space-between; align-items: start; flex-wrap: wrap; }
+.hmain { min-width: 0; flex: 1 1 320px; }
+.hitem h2 { font-size: 1rem; letter-spacing: -0.01em; }
+.hitem h2 a { color: var(--ink); text-decoration: none; }
+.hitem h2 a:hover { text-decoration: underline; }
+.hurl { font-size: .85rem; color: var(--ink-3); overflow-wrap: anywhere; margin-top: 2px; }
+.hmeta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: .82rem; color: var(--ink-2); margin-top: 10px; }
+.hactions { display: flex; gap: 8px; align-items: center; }
+#view-history .callout p { margin-top: 4px; }
+
+@media print {
+  .nav, .foot, .skip, .run-actions, .back, .saved-note, .progress, .agent-meta button, .dl { display: none !important; }
+  body { background: #fff; }
+  .agents { grid-template-columns: 1fr 1fr; }
+  .agent, .bitem { break-inside: avoid; box-shadow: none; }
+  .thought { -webkit-line-clamp: unset; display: block; }
+}
+@media (max-width: 480px) { .brand-name { display: none; } }
+[tabindex="-1"]:focus { outline: none; }
+details.dl.dl-left .dl-menu { left: 0; right: auto; }

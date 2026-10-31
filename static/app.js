@@ -1,7 +1,7 @@
-// Persona Lab: start a test, watch four agents live, read the verdict.
+// Persona Lab: start a test, watch four agents live, read the verdict, come back to it in History.
 "use strict";
 
-const run = { id: null, data: null, timer: null, drawer: null };
+const run = { id: null, data: null, timer: null, drawer: null, saved: null, shots: {} };
 const ORDER = ["keyboard", "screen_reader", "color_blind", "low_vision"];
 const SEV = { blocker: ["!", "Blocker"], serious: ["▲", "Serious"], minor: ["•", "Minor"] };
 const VERB = {
@@ -9,6 +9,8 @@ const VERB = {
   read_page: "Read the page", list_elements: "Listed", find_text: "Searched for", scroll: "Scrolled", look: "Looked at the screen",
   go_back: "Went back", report_barrier: "Hit a barrier", finish: "Finished",
 };
+const TITLE = document.title;
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch { return iso || ""; } };
 
 // ---------------------------------------------------------------- start view
 async function initStart() {
@@ -73,12 +75,35 @@ async function startRun() {
   } finally { $("#run-btn").disabled = false; }
 }
 
+// ---------------------------------------------------------------- views
+function setView(name) {
+  ["start", "run", "history"].forEach((v) => { $(`#view-${v}`).hidden = v !== name; });
+  const inHistory = name === "history" || (name === "run" && run.saved);
+  $(inHistory ? "#nav-history" : "#nav-test").setAttribute("aria-current", "page");
+  $(inHistory ? "#nav-test" : "#nav-history").removeAttribute("aria-current");
+  if (name !== "run") { run.id = null; run.saved = null; clearTimeout(run.timer); }
+  document.title = name === "history" ? "History: Persona Lab" : TITLE;
+}
+
 // ---------------------------------------------------------------- run view
-function showRun(g) {
-  $("#view-start").hidden = true; $("#view-run").hidden = false;
+// `saved` is a History entry when reopening a finished test from this browser (no polling, local screenshots).
+function showRun(g, saved = null, files = null) {
+  Object.values(run.shots).forEach((u) => URL.revokeObjectURL(u));
+  run.shots = {};
+  if (saved && files && files.shots) for (const [jid, blob] of Object.entries(files.shots)) run.shots[jid] = URL.createObjectURL(blob);
+  run.saved = saved;
+  setView("run");
   run.id = g.id; run.data = g;
   $("#run-task").textContent = g.goal;
   $("#run-url").textContent = g.url;
+  const back = $("#back");
+  back.href = saved ? "#history" : "/";
+  back.lastChild.textContent = saved ? " All saved tests" : " New test";
+  $("#dl-slot").innerHTML = "";
+  $("#saved-note").innerHTML = saved
+    ? `Saved test from ${esc(fmtDate(saved.run_at || saved.saved_at))}${saved.imported ? " (imported from a file)" : ""}.`
+    : "";
+  $("#barriers").hidden = true;
   $("#agents").innerHTML = ORDER.map((p) => g.members.find((m) => m.persona === p)).filter(Boolean).map((m) => `
     <article class="agent" data-id="${m.id}" aria-labelledby="h-${m.id}">
       <div class="agent-head">
@@ -96,7 +121,7 @@ function showRun(g) {
   window.scrollTo({ top: 0 });
   render(g);
   clearTimeout(run.timer);
-  poll();
+  if (!saved) poll();
 }
 
 async function poll() {
@@ -106,12 +131,33 @@ async function poll() {
     if (id !== run.id) return;
     run.data = g; render(g);
     if (run.drawer) refreshDrawer();
-    if (g.finished) { refreshStatus(); return; }
+    if (g.finished) { refreshStatus(); autoSave(g); return; }
   } catch (err) {
     $("#verdict").innerHTML = `<span class="txt" style="color:var(--bad)">${esc(err.message)}</span>`;
     return;
   }
   run.timer = setTimeout(poll, 1500);
+}
+
+// Keep every finished run in this browser: the data, the HTML report and each agent's last screenshot.
+async function autoSave(g) {
+  if (!g.members.some((m) => m.status !== "error")) return;  // nothing ran (e.g. a bad key): not worth keeping
+  const note = $("#saved-note");
+  try {
+    if (await History.get(g.id)) { if (run.id === g.id) note.innerHTML = 'Saved in your <a href="#history">History</a>.'; return; }
+    const record = await api(`/api/run/${g.id}/export.json`);
+    const report_html = await fetch(`/api/run/${g.id}/report.html`).then((r) => (r.ok ? r.text() : null)).catch(() => null);
+    const shots = {};
+    for (const m of g.members) {
+      if (!m.shot) continue;
+      const r = await fetch(`/api/journey/${m.id}/shot/${m.shot}.jpg`).catch(() => null);
+      if (r && r.ok) shots[m.id] = await r.blob();
+    }
+    await History.put(historyEntry(record, mergeBarriers(record.run).length), { report_html, shots });
+    if (run.id === g.id) note.innerHTML = 'Saved in your <a href="#history">History</a> (this browser only).';
+  } catch {
+    if (run.id === g.id) note.textContent = "Couldn't save this test to History; your browser may be blocking storage. Use Download to keep a copy.";
+  }
 }
 
 const goalPhrase = (g) => g.goal.charAt(0).toLowerCase() + g.goal.slice(1);
@@ -122,8 +168,7 @@ function render(g) {
   $("#progress-bar").style.width = `${Math.max(4, (done / g.total) * 100)}%`;
   $(".progress").hidden = g.finished;
   $("#stop-btn").hidden = g.finished;
-  const rb = $("#report-btn");
-  rb.hidden = !g.finished; rb.href = `/api/run/${g.id}/report.html`;
+  if (g.finished && !$("#dl-slot").firstChild) $("#dl-slot").innerHTML = dlMenu(g.id);
 
   $("#verdict").innerHTML = g.finished
     ? `<span class="num ${g.completed === g.total ? "all" : "some"}">${g.completed} of ${g.total}</span>
@@ -148,12 +193,15 @@ function render(g) {
     const key = m.persona === "screen_reader" ? `t${(last.heard || "").length}` : `s${m.shot}`;
     if (screen.dataset.key === key) return;
     screen.dataset.key = key;
+    const src = run.saved ? run.shots[m.id] : m.shot && `/api/journey/${m.id}/shot/${m.shot}.jpg`;
     if (m.persona === "screen_reader" && last.heard) {
       screen.innerHTML = `<div class="term"><span class="label">Screen reader output</span>${esc(last.heard.replace(/ \[ref \d+\]/g, "").slice(0, 900))}</div>`;
     } else if (m.persona === "screen_reader") {
       screen.innerHTML = `<div class="term"><span class="label">Screen reader output</span>${esc(last.result || "Listening…")}</div>`;
-    } else if (m.shot) {
-      screen.innerHTML = `<img src="/api/journey/${m.id}/shot/${m.shot}.jpg" alt="What the ${esc(m.persona_label.toLowerCase())} sees at step ${m.shot}">`;
+    } else if (src) {
+      screen.innerHTML = `<img src="${esc(src)}" alt="What the ${esc(m.persona_label.toLowerCase())} sees at step ${m.shot}">`;
+    } else if (run.saved) {
+      screen.innerHTML = '<p class="noshot">No screenshot saved for this test.</p>';
     }
   });
 
@@ -165,9 +213,9 @@ function stuckList(g) {
   return stuck.length ? `Stuck: ${stuck.join(", ")}.` : "";
 }
 
-function renderBarriers(g) {
-  // Merge findings across agents, most severe first. Same title = same barrier; an automatic
-  // finding about the same WCAG criterion as an agent-reported one is folded into it.
+// Merge findings across agents, most severe first. Same title = same barrier; an automatic
+// finding about the same WCAG criterion as an agent-reported one is folded into it.
+function mergeBarriers(g) {
   const map = new Map();
   const crit = (b) => (String(b.wcag || "").match(/\d+\.\d+\.\d+/) || [""])[0];
   const add = (b, who) => {
@@ -183,7 +231,11 @@ function renderBarriers(g) {
   ["agent", "auto"].forEach((src) => g.members.forEach((m) => (m.barrier_list || [])
     .filter((b) => b.source === src).forEach((b) => add(b, m.persona_label.replace(/ \(.*\)/, "")))));
   const rank = { blocker: 0, serious: 1, minor: 2 };
-  const items = [...map.values()].sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3) || b.who.size - a.who.size);
+  return [...map.values()].sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3) || b.who.size - a.who.size);
+}
+
+function renderBarriers(g) {
+  const items = mergeBarriers(g);
   $("#barriers").hidden = false;
   $("#barriers-sub").textContent = items.length
     ? `${items.length} barrier${items.length === 1 ? "" : "s"}, reported by the agents or detected automatically along the way.`
@@ -208,15 +260,22 @@ async function openDrawer(jid) {
   const m = run.data.members.find((x) => x.id === jid);
   $("#drawer-h").textContent = m.persona_label;
   $("#drawer-sub").textContent = PERCEIVES[m.persona];
+  $("#drawer-report").hidden = !!run.saved;
   $("#drawer-report").href = `/api/journey/${jid}/report.html`;
   $("#steps").innerHTML = "";
   $("#drawer").showModal();
+  if (run.saved) {
+    const j = run.saved.record.journeys.find((x) => x.id === jid);
+    if (m.persona !== "screen_reader") $("#drawer-sub").textContent += " Screenshots of every step are in the HTML report.";
+    $("#steps").innerHTML = j ? j.steps.map((st) => stepHtml(st, j, false)).join("") : "";
+    return;
+  }
   await refreshDrawer();
 }
 
 async function refreshDrawer() {
   const d = run.drawer;
-  if (!d || !$("#drawer").open) { run.drawer = null; return; }
+  if (!d || !$("#drawer").open || run.saved) { run.drawer = null; return; }
   try {
     const j = await api(`/api/journey/${d.id}?since=${d.seen}`);
     if (run.drawer !== d) return;
@@ -225,13 +284,13 @@ async function refreshDrawer() {
   } catch {}
 }
 
-function stepHtml(st, j) {
+function stepHtml(st, j, shots = true) {
   const inp = st.input || {};
   const detail = inp.key ? `<code>${esc(inp.key)}${inp.times > 1 ? " ×" + inp.times : ""}</code>`
     : inp.text ? `<code>${esc(inp.text)}</code>` : inp.query ? `<code>${esc(inp.query)}</code>` : "";
   const sr = j.persona === "screen_reader";
   const media = sr ? (st.heard ? `<pre>${esc(st.heard.replace(/ \[ref \d+\]/g, ""))}</pre>` : "")
-    : (st.has_shot ? `<img src="/api/journey/${j.id}/shot/${st.n}.jpg" alt="Screen at step ${st.n}" loading="lazy">` : "");
+    : (shots && st.has_shot ? `<img src="/api/journey/${j.id}/shot/${st.n}.jpg" alt="Screen at step ${st.n}" loading="lazy">` : "");
   return `<li class="step ${st.tool === "report_barrier" ? "barrier" : ""}">
     <span class="n" aria-hidden="true">${st.tool === "report_barrier" ? "!" : st.n}</span>
     <div>
@@ -241,17 +300,129 @@ function stepHtml(st, j) {
     </div></li>`;
 }
 
+// ---------------------------------------------------------------- history view
+async function showHistory() {
+  setView("history");
+  await renderHistory();
+  $("#history-h").focus();
+}
+
+async function renderHistory() {
+  let items = [];
+  try { items = await History.list(); } catch (err) { $("#history-msg").textContent = err.message; }
+  $("#history-empty").hidden = items.length > 0;
+  $("#clear-btn").hidden = !items.length;
+  $("#hlist").innerHTML = items.map((r) => {
+    const all = r.completed === r.total;
+    return `<li class="hitem">
+      <div class="hmain">
+        <h2><a href="#saved=${esc(r.id)}">${esc(r.goal)}</a></h2>
+        <p class="hurl">${esc(r.url)}</p>
+        <p class="hmeta">
+          <span class="pill ${all ? "ok" : "bad"}"><span aria-hidden="true">${all ? "✓" : "✕"}</span> ${r.completed} of ${r.total} could do it</span>
+          <span>${r.barriers} barrier${r.barriers === 1 ? "" : "s"}</span>
+          <span>${esc(fmtDate(r.run_at || r.saved_at))}</span>${r.imported ? "<span>Imported</span>" : ""}
+        </p>
+      </div>
+      <div class="hactions">${dlMenu(r.id)}
+        <button type="button" class="btn btn-sm" data-del="${esc(r.id)}">Delete<span class="sr-only"> “${esc(r.goal)}”</span></button>
+      </div>
+    </li>`;
+  }).join("");
+}
+
+$("#hlist").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-del]");
+  if (!b) return;
+  const r = await History.get(b.dataset.del).catch(() => null);
+  if (!r || !confirm(`Delete “${r.goal}” from History? This can't be undone.`)) return;
+  await History.del(r.id);
+  await renderHistory();
+  $("#history-msg").textContent = `Deleted “${r.goal}”.`;
+  $("#history-h").focus();
+});
+
+$("#clear-btn").addEventListener("click", async () => {
+  if (!confirm("Delete every saved test from History in this browser? This can't be undone.")) return;
+  await History.clear();
+  await renderHistory();
+  $("#history-msg").textContent = "History cleared.";
+  $("#history-h").focus();
+});
+
+$("#import-btn").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0], msg = $("#history-msg");
+  e.target.value = "";
+  if (!file) return;
+  try {
+    if (file.size > 20 * 1024 * 1024) throw new Error("That file is too large to be a Persona Lab export.");
+    let record;
+    try { record = JSON.parse(await file.text()); } catch { throw new Error("That file isn't valid JSON."); }
+    if (!validRecord(record)) throw new Error("That file isn't a Persona Lab test (download one with Download → Data (JSON)).");
+    if (await History.get(record.run.id)) { msg.textContent = `“${record.run.goal}” is already in your History.`; return; }
+    await History.put(historyEntry(record, mergeBarriers(record.run).length, true), {});
+    await renderHistory();
+    msg.textContent = `Imported “${record.run.goal}”.`;
+  } catch (err) { msg.textContent = err.message; }
+});
+
+// ---------------------------------------------------------------- downloads
+// From this browser's History when the test is saved there, otherwise from the server.
+async function download(id, what) {
+  const saved = await History.get(id).catch(() => null);
+  const record = saved ? saved.record : await api(`/api/run/${id}/export.json`);
+  const base = fileBase(record);
+  if (what === "json") return saveFile(`${base}.json`, JSON.stringify(record, null, 2), "application/json");
+  if (what === "csv") return saveFile(`${base}-barriers.csv`, toCSV(record), "text/csv;charset=utf-8");
+  const html = saved
+    ? ((await History.files(id).catch(() => null)) || {}).report_html
+    : await fetch(`/api/run/${id}/report.html`).then((r) => (r.ok ? r.text() : null)).catch(() => null);
+  if (html) return what === "html" ? saveFile(`${base}.html`, html, "text/html") : printHTML(html);
+  if (what === "pdf") {  // no stored report (imported test): print the results page itself
+    if (!run.saved || run.saved.id !== id) { history.pushState({}, "", `#saved=${id}`); await route(); }
+    return window.print();
+  }
+  throw new Error("The HTML report isn't stored for imported tests. Download it in the browser that ran the test, or use PDF to print this page.");
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-dl]");
+  if (!b) return;
+  const d = b.closest("details.dl");
+  d.open = false;
+  const msg = $("#view-history").hidden ? $("#saved-note") : $("#history-msg");
+  try { await download(d.dataset.src, b.dataset.dl); } catch (err) { msg.textContent = err.message; }
+});
+
 // ---------------------------------------------------------------- wiring
 $("#stop-btn").addEventListener("click", async () => { if (run.id) await api(`/api/run/${run.id}/stop`, { method: "POST" }).catch(() => {}); });
 $("#drawer").addEventListener("close", () => { run.drawer = null; });
 
+async function openSaved(id) {
+  const s = await History.get(id).catch(() => null);
+  if (!s) return false;
+  const files = await History.files(id).catch(() => null);
+  showRun(s.record.run, s, files);
+  return true;
+}
+
 async function route() {
-  const m = location.hash.match(/run=([a-f0-9]+)/);
+  const h = location.hash;
+  let m = h.match(/^#run=([a-f0-9]+)/);
   if (m) {
-    try { showRun(await api(`/api/run/${m[1]}`)); return; } catch { history.replaceState({}, "", "/"); }
+    try { showRun(await api(`/api/run/${m[1]}`)); return; } catch {}
+    // The server forgot it (restart or redeploy), but this browser may have kept it.
+    if (await openSaved(m[1])) { history.replaceState({}, "", `#saved=${m[1]}`); return; }
+    history.replaceState({}, "", "/");
   }
-  run.id = null; clearTimeout(run.timer);
-  $("#view-run").hidden = true; $("#view-start").hidden = false;
+  m = h.match(/^#saved=([a-f0-9]+)/);
+  if (m) {
+    if (await openSaved(m[1])) return;
+    history.replaceState({}, "", "#history");
+  }
+  if (location.hash === "#history") return showHistory();
+  setView("start");
 }
 window.addEventListener("popstate", route);
 initStart();

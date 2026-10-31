@@ -15,7 +15,7 @@ from pathlib import Path
 from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
 
 from .evals import BENCH, list_results, load_benchmark
-from .export import export_group, export_journey
+from .export import export_group, export_journey, export_record
 from .guard import BusyError, RateLimiter, limits, local_bench_url, public_mode
 from .journey import DEFAULT_MODEL, PERSONAS, JourneyManager
 
@@ -155,6 +155,17 @@ def create_app(agent_client=None) -> Flask:
             return bad("Run not found (the server may have restarted).", 404)
         members = [journeys.get(jid) for jid in g["journeys"] if journeys.get(jid)]
         return _download(export_group(g, members), f"persona-lab-{gid}.html")
+
+    @app.get("/api/run/<gid>/export.json")
+    def run_export(gid: str):
+        """Everything about a run except screenshots: the browser keeps it as History, users download it as JSON."""
+        g = journeys.group(gid)
+        if not g:
+            return bad("Run not found (the server may have restarted).", 404)
+        members = [journeys.get(jid) for jid in g["journeys"] if journeys.get(jid)]
+        resp = jsonify(export_record(g, members))
+        resp.headers["Content-Disposition"] = f'attachment; filename="persona-lab-{gid}.json"'
+        return resp
 
     # ---------------- single journeys ----------------
 

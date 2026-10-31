@@ -92,6 +92,22 @@ evals/results/        one JSON per evaluation run
 static/               index.html (test a site), evals.html (dashboard): no build step
 ```
 
+## Related work
+
+AI agents that test a site as a keyboard-only or screen-reader user already exist, notably
+[keyboard-a11y-tester](https://github.com/ezufelt/keyboard-a11y-tester),
+[Accessibility AI Agent](https://github.com/ksmuvva/Accessiblity_AI_Agent) and
+[zivtech/accessibility-skills](https://github.com/zivtech/accessibility-skills). On the research side,
+[UXAgent](https://arxiv.org/abs/2502.12561) simulates users with persona agents for usability testing, and
+[Zhong et al. (UIST 2026)](https://faculty.washington.edu/wobbrock/pubs/uist-26.01.pdf) study interaction agents for accessibility evaluation.
+
+Persona Lab adds:
+
+- **Visual personas:** a color-blind agent that sees a color-blindness simulation of the screen, and a low-vision agent that sees the page zoomed, blurred and at lower contrast, alongside the keyboard and screen-reader personas.
+- **A scored benchmark:** planted barriers, an accessible control site, objective outcome checks and a false-success rate, so the agents themselves are evaluated, not just their findings.
+
+More notes are in [`docs/related-work.md`](docs/related-work.md).
+
 ## Limitations and next steps
 
 - The benchmark is small (12 barriers, 20 cases) and hand-built. Next: more sites, real-world sites with expert-labelled barriers, and repeated runs to report variance.

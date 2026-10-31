@@ -46,6 +46,17 @@ def test_run_end_to_end_and_report():
     assert rep.headers["Content-Disposition"].startswith("attachment") and "3 of 4 people" in rep.get_data(as_text=True)
     j = c.get(f"/api/journey/{g['journeys'][0]}").json
     assert j["usage"]["llm_calls"] == 2
+    assert "beforeprint" in rep.get_data(as_text=True)  # Save as PDF expands the step logs
+
+    # JSON export: what the browser stores in History and what users download / import
+    ex = c.get(f"/api/run/{g['id']}/export.json")
+    assert ex.headers["Content-Disposition"].startswith("attachment")
+    rec = ex.json
+    assert rec["format"] == "persona-lab-run" and rec["version"] == 1 and rec["exported_at"]
+    assert rec["run"]["id"] == g["id"] and rec["run"]["completed"] == 3 and len(rec["run"]["members"]) == 4
+    assert {j["id"] for j in rec["journeys"]} == set(g["journeys"]) and all(j["steps"] for j in rec["journeys"])
+    assert "shots" not in str(rec.keys()) and "base64" not in ex.get_data(as_text=True)
+    assert c.get("/api/run/nope/export.json").status_code == 404
 
 
 def test_public_mode_guard_and_limits(monkeypatch):
