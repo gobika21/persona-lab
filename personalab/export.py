@@ -41,6 +41,7 @@ ol.steps li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; margin-
 img.shot { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; margin-top: 8px; }
 code { font-size: .82rem; background: #efece5; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
 pre { white-space: pre-wrap; font-size: .8rem; background: #efece5; padding: 8px 10px; border-radius: 8px; max-height: 260px; overflow: auto; }
+ul.worked { list-style: none; padding: 0; } ul.worked li::before { content: "✓ "; color: var(--ok); font-weight: 800; }
 footer { margin-top: 40px; font-size: .8rem; color: var(--ink2); border-top: 1px solid var(--line); padding-top: 12px; }
 @media print {
   body { background: #fff; font-size: 12pt; } main { max-width: none; padding: 0; }
@@ -107,6 +108,13 @@ def _steps(j: Journey) -> str:
     return f'<ol class="steps">{"".join(out)}</ol>'
 
 
+def _worked(j: Journey, heading: str = "h3") -> str:
+    if not j.worked:
+        return ""
+    items = "".join(f"<li>{e(w)}</li>" for w in j.worked)
+    return f'<{heading}>What worked</{heading}><ul class="worked">{items}</ul>'
+
+
 def _journey_section(j: Journey, heading_level: int = 2) -> str:
     p = PERSONAS[j.persona]
     verdict = ('<span class="ok">✓ Completed the goal</span>' if j.success
@@ -116,7 +124,7 @@ def _journey_section(j: Journey, heading_level: int = 2) -> str:
             f'<p class="small">{e(p["who"])}</p>'
             f'<div class="card"><strong>{verdict}</strong><p>{e(j.summary or j.error or "")}</p>'
             f'<div class="small">{len(j.steps)} steps</div></div>'
-            f'<h3>Barriers</h3>{_barrier_cards(j)}'
+            f'<h3>Barriers</h3>{_barrier_cards(j)}{_worked(j)}'
             f'<details><summary><strong>Step-by-step log</strong></summary>{_steps(j)}</details></section>')
 
 
@@ -127,7 +135,7 @@ def export_journey(j: Journey) -> str:
             f'<div class="meta">{e(j.url)}</div></header>'
             f'<div class="hero"><div class="big {"ok" if j.success else "bad"}">{"✓" if j.success else "✗"}</div>'
             f'<div><strong>{"Yes, they completed it." if j.success else "No, they got stuck."}</strong><br>{e(j.summary or "")}</div></div>'
-            f'<h2>Barriers found</h2>{_barrier_cards(j)}<h2>Step by step</h2>{_steps(j)}')
+            f'<h2>Barriers found</h2>{_barrier_cards(j)}{_worked(j, "h2")}<h2>Step by step</h2>{_steps(j)}')
     return _page(f"Persona journey: {p['label']}", body)
 
 

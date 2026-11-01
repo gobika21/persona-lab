@@ -1,6 +1,7 @@
 """Persona Lab web server.
 
-Pages:  /  (run a test)   /evals  (benchmark results)   /bench/<site>/  (demo sites with planted barriers)
+Pages:  the Next.js app (web/, built to web/out) at / /run /saved /history /evals,
+        and /bench/<site>/ (demo sites with planted barriers). JSON API under /api/.
 No login. PUBLIC_MODE=1 turns on SSRF protection, per-visitor daily limits and
 lets visitors bring their own Anthropic key.
 """
@@ -20,12 +21,13 @@ from .guard import BusyError, RateLimiter, limits, local_bench_url, public_mode
 from .journey import DEFAULT_MODEL, PERSONAS, JourneyManager
 
 ROOT = Path(__file__).resolve().parent.parent
-STATIC = ROOT / "static"
+WEB_OUT = ROOT / "web" / "out"  # `npm run build` in web/ (a Next.js static export)
 KEY_HEADER = "X-Anthropic-Key"
 
 
-def create_app(agent_client=None) -> Flask:
-    app = Flask(__name__, static_folder=str(STATIC), static_url_path="/static")
+def create_app(agent_client=None, web_dir: Path | None = None) -> Flask:
+    app = Flask(__name__, static_folder=None)
+    web = Path(web_dir or os.environ.get("PERSONALAB_WEB_DIR") or WEB_OUT)
     model = os.environ.get("CLAUDE_MODEL") or DEFAULT_MODEL
     state = {"server_client": None}
 
@@ -74,13 +76,22 @@ def create_app(agent_client=None) -> Flask:
 
     # ---------------- pages ----------------
 
-    @app.get("/")
-    def index():
-        return send_from_directory(STATIC, "index.html")
-
-    @app.get("/evals")
-    def evals_page():
-        return send_from_directory(STATIC, "evals.html")
+    @app.get("/", defaults={"path": ""})
+    @app.get("/<path:path>")
+    def web_app(path: str):
+        """The Next.js static export: /history -> history.html, /_next/... assets, else its 404 page."""
+        if path.startswith("api/"):
+            return bad("Not found.", 404)
+        if not (web / "index.html").exists():
+            return Response("The web app isn't built yet. Run: cd web && npm install && npm run build", 503, mimetype="text/plain")
+        path = path.rstrip("/")
+        for candidate in (path or "index.html", f"{path}.html", f"{path}/index.html"):
+            if candidate and (web / candidate).is_file():
+                resp = send_from_directory(web, candidate)
+                if path.startswith("_next/static/"):
+                    resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"  # content-hashed names
+                return resp
+        return send_from_directory(web, "404.html"), 404
 
     @app.get("/bench/<path:path>")
     def bench_site(path: str):

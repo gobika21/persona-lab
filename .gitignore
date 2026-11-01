@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 personalab/vendor/
+web/node_modules/
+web/.next/
+web/out/

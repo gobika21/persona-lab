@@ -34,7 +34,25 @@ HELPER_JS = (HERE / "journey_helper.js").read_text()
 
 DEFAULT_MODEL = "claude-opus-5-5"  # override with CLAUDE_MODEL
 MAX_ACTIONS = 30
-MAX_TOKENS = 1024
+MAX_TOKENS = 16000  # current models always think, and thinking counts toward this
+
+# Effort trades depth for token spend; set it explicitly (Opus 5.5 defaults to medium) and record it with eval runs.
+EFFORT = os.environ.get("CLAUDE_EFFORT", "medium")
+
+# History is append-only: the API's preserved-thinking check rejects edited earlier turns (new accounts),
+# and edits also break the prompt cache. Old tool results (screenshots, page text) are cleared server-side instead.
+CONTEXT_BETA = "context-management-2025-06-27"
+CLEAR_OLD_RESULTS = {
+    "type": "clear_tool_uses_20250919",
+    "trigger": {"type": "input_tokens", "value": 30_000},
+    "keep": {"type": "tool_uses", "value": 3},
+    "clear_at_least": {"type": "input_tokens", "value": 5_000},  # don't break the cache for a tiny saving
+    "exclude_tools": ["report_barrier", "finish"],
+}
+
+# On a safety-filter refusal, these models can re-run the request on a fallback model server-side.
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
+FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"}
 NAV_TIMEOUT_MS = 30000
 SR_PAGE_LINES = 70
 
@@ -104,10 +122,17 @@ COMMON_TOOLS = [
     },
     {
         "name": "finish",
-        "description": "End the journey: say whether you completed the goal and summarise the experience.",
+        "description": "End the journey: say whether you completed the goal, summarise the experience, and list what worked well.",
         "input_schema": {
             "type": "object",
-            "properties": {"success": {"type": "boolean"}, "summary": {"type": "string"}},
+            "properties": {
+                "success": {"type": "boolean"},
+                "summary": {"type": "string"},
+                "worked": {
+                    "type": "array", "items": {"type": "string"}, "maxItems": 5,
+                    "description": "Short notes on what worked well for this persona, e.g. 'Skip link went straight to the content'. Empty if nothing did.",
+                },
+            },
             "required": ["success", "summary"],
         },
     },
@@ -196,7 +221,7 @@ Rules:
 - When something blocks or seriously slows you, call report_barrier right away, with a concrete fix.
 - Try reasonable alternatives (like a real, patient user), but don't loop. If you're stuck after a few attempts, report it and finish with success=false.
 - Call finish when the goal is done, impossible, or you've used most of your {max_actions} actions.
-- Be honest: if the site works well for this persona, say so.
+- Be honest: if the site works well for this persona, say so, and list what worked in finish's `worked`.
 """
 
 
@@ -213,6 +238,7 @@ class Journey:
     auto_findings: list[dict] = field(default_factory=list)
     success: bool | None = None
     summary: str = ""
+    worked: list[str] = field(default_factory=list)
     error: str = ""
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
@@ -220,7 +246,9 @@ class Journey:
     stop_requested: bool = False
     current: str = "Opening the browser…"
     model: str = ""
-    tokens_in: int = 0
+    tokens_in: int = 0  # uncached input
+    tokens_cache_read: int = 0
+    tokens_cache_write: int = 0
     tokens_out: int = 0
     llm_calls: int = 0
     visited: list[str] = field(default_factory=list)
@@ -230,10 +258,11 @@ class Journey:
             "id": self.id, "url": self.url, "goal": self.goal, "persona": self.persona,
             "persona_label": PERSONAS[self.persona]["label"], "who": PERSONAS[self.persona]["who"],
             "status": self.status, "current": self.current, "success": self.success, "summary": self.summary,
-            "error": self.error, "steps": self.steps[since:], "step_count": len(self.steps),
+            "worked": self.worked, "error": self.error, "steps": self.steps[since:], "step_count": len(self.steps),
             "barriers": self.barriers, "auto_findings": self.auto_findings,
             "elapsed_s": round((self.finished_at or time.time()) - self.started_at, 1),
-            "usage": {"model": self.model, "input_tokens": self.tokens_in, "output_tokens": self.tokens_out, "llm_calls": self.llm_calls},
+            "usage": {"model": self.model, "effort": EFFORT, "input_tokens": self.tokens_in, "cache_read_input_tokens": self.tokens_cache_read,
+                      "cache_creation_input_tokens": self.tokens_cache_write, "output_tokens": self.tokens_out, "llm_calls": self.llm_calls},
         }
 
 
@@ -563,18 +592,22 @@ class JourneyRunner:
             step["heard"] = heard[:4000]  # what the screen reader said: the UI can play it aloud
         self.j.steps.append(step)
 
-    @staticmethod
-    def _strip_old_images(messages: list[dict]):
-        """Keep only the latest screenshot in context (saves tokens; the persona 'remembers' in words)."""
-        for m in messages[:-1]:
-            if m["role"] != "user" or not isinstance(m["content"], list):
-                continue
-            for block in m["content"]:
-                if block.get("type") == "tool_result" and isinstance(block.get("content"), list):
-                    block["content"] = [b if b.get("type") != "image" else {"type": "text", "text": "[earlier view no longer visible]"} for b in block["content"]]
-                elif block.get("type") == "image":
-                    block.clear()
-                    block.update({"type": "text", "text": "[earlier view no longer visible]"})
+    def _ask(self, system: str, tools: list[dict], messages: list[dict]):
+        """One agent step. Cached prefix (tools, system, history so far); old tool results cleared by the API."""
+        kw = {
+            "model": self.model, "max_tokens": MAX_TOKENS, "system": system, "tools": tools, "messages": messages,
+            "cache_control": {"type": "ephemeral"}, "output_config": {"effort": EFFORT},
+            "context_management": {"edits": [CLEAR_OLD_RESULTS]}, "betas": [CONTEXT_BETA],
+        }
+        if self.model in FALLBACK_MODELS:
+            kw["betas"] = [CONTEXT_BETA, FALLBACK_BETA]
+            kw["fallbacks"] = "default"
+        resp = self.client.beta.messages.create(**kw)
+        if getattr(resp, "stop_reason", None) == "refusal":
+            details = getattr(resp, "stop_details", None)
+            category = getattr(details, "category", None) if details else None
+            raise RuntimeError(f"The model declined to continue this test{f' ({category})' if category else ''}.")
+        return resp
 
     def run(self):
         from playwright.sync_api import sync_playwright
@@ -608,13 +641,15 @@ class JourneyRunner:
                 actions = 0
                 while actions < MAX_ACTIONS and not j.stop_requested:
                     j.current = "Thinking…"
-                    self._strip_old_images(messages)
-                    resp = self.client.messages.create(model=self.model, max_tokens=MAX_TOKENS, system=system, tools=tools, messages=messages)
+                    resp = self._ask(system, tools, messages)
                     j.llm_calls += 1
                     usage = getattr(resp, "usage", None)
                     if usage is not None:
-                        j.tokens_in += int(getattr(usage, "input_tokens", 0) or 0) + int(getattr(usage, "cache_read_input_tokens", 0) or 0)
-                        j.tokens_out += int(getattr(usage, "output_tokens", 0) or 0)
+                        n = lambda k: int(getattr(usage, k, 0) or 0)  # noqa: E731
+                        j.tokens_in += n("input_tokens")
+                        j.tokens_cache_read += n("cache_read_input_tokens")
+                        j.tokens_cache_write += n("cache_creation_input_tokens")
+                        j.tokens_out += n("output_tokens")
                     blocks = [_block(b) for b in resp.content]
                     messages.append({"role": "assistant", "content": blocks})
                     thought = " ".join(b["text"] for b in blocks if b.get("type") == "text").strip()
@@ -632,6 +667,8 @@ class JourneyRunner:
                             results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": "Recorded."})
                         elif name == "finish":
                             j.success, j.summary = bool(args.get("success")), args.get("summary", "")
+                            worked = args.get("worked")
+                            j.worked = [str(w)[:200] for w in worked if str(w).strip()][:5] if isinstance(worked, list) else []
                             self._record(thought, name, args, "Completed the goal" if j.success else "Gave up: couldn't complete the goal", None)
                             results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": "Journey finished."})
                             finished = True
@@ -770,11 +807,11 @@ class JourneyManager:
             "members": [
                 {"id": m.id, "persona": m.persona, "persona_label": PERSONAS[m.persona]["label"], "status": m.status,
                  "success": m.success, "steps": len(m.steps), "barriers": len(m.barriers) + len(m.auto_findings),
-                 "current": m.current, "summary": m.summary, "error": m.error,
+                 "current": m.current, "summary": m.summary, "worked": m.worked, "error": m.error,
                  "last": _last_step(m), "shot": max(m.shots) if m.shots else None,
                  "barrier_list": [{k: b.get(k) for k in ("title", "detail", "severity", "wcag", "fix")} | {"source": src}
                                   for src, bs in (("agent", m.barriers), ("auto", m.auto_findings)) for b in bs],
-                 "tokens": m.tokens_in + m.tokens_out}
+                 "tokens": m.tokens_in + m.tokens_cache_read + m.tokens_cache_write + m.tokens_out}
                 for m in members
             ],
             "finished": len(done) == len(members),

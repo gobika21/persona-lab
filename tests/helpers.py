@@ -46,6 +46,7 @@ class Scripted:
     def __init__(self, script):
         self.script = script
         self.messages = self
+        self.beta = self  # client.beta.messages.create(...) lands in create() too
         self.calls = []
         self._lock = threading.Lock()
 
@@ -58,5 +59,8 @@ class Scripted:
                                           ("color_blind", "Color-blind"), ("low_vision", "Low-vision")) if key in system.split("GOAL:")[0]), None)
         n = sum(1 for m in kw["messages"] if m["role"] == "assistant")
         blocks = self.script(persona, n, last_result_text(kw), kw)
-        usage = SimpleNamespace(input_tokens=1000, output_tokens=100)
+        usage = SimpleNamespace(input_tokens=1000, output_tokens=100, cache_read_input_tokens=400 * n, cache_creation_input_tokens=300)
+        if blocks == "refuse":  # a safety-filter decline
+            details = SimpleNamespace(type="refusal", category="cyber", explanation="")
+            return SimpleNamespace(content=[], stop_reason="refusal", stop_details=details, usage=usage)
         return SimpleNamespace(content=blocks, stop_reason="tool_use" if any(b.type == "tool_use" for b in blocks) else "end_turn", usage=usage)

@@ -10,12 +10,37 @@ from tests.helpers import HAVE_BROWSER, Scripted, tool
 def finisher(persona, n, seen, kw):
     if n == 0:
         return [tool("report_barrier", title="Demo barrier", detail="d", severity="serious", fix="f")]
-    return [tool("finish", success=persona != "keyboard", summary="done")]
+    if persona == "screen_reader":  # a model can send junk: worked must end up a clean list
+        return [tool("finish", success=True, summary="done", worked="not a list")]
+    return [tool("finish", success=persona != "keyboard", summary="done", worked=["Headings were clear", " ", "Phone number in the footer"])]
 
 
-def test_pages_and_meta(monkeypatch):
+def fake_web(tmp_path):
+    """A stand-in for the Next.js static export (web/out), so tests don't need Node."""
+    for name, body in {"index.html": "home", "evals.html": "evals", "history.html": "history", "404.html": "missing",
+                       "_next/static/chunks/app.js": "js"}.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(body)
+    return tmp_path
+
+
+def test_web_app_routes(tmp_path):
+    c = create_app(web_dir=fake_web(tmp_path)).test_client()
+    assert c.get("/").get_data(as_text=True) == "home"
+    assert c.get("/history").get_data(as_text=True) == "history" and c.get("/history/").status_code == 200
+    js = c.get("/_next/static/chunks/app.js")
+    assert js.status_code == 200 and "immutable" in js.headers["Cache-Control"]
+    r = c.get("/no-such-page")
+    assert r.status_code == 404 and r.get_data(as_text=True) == "missing"
+    assert c.get("/../personalab/server.py").status_code == 404
+    assert c.get("/api/nope").status_code == 404 and c.get("/api/nope").json["error"]
+    assert c.get("/").headers["X-Frame-Options"] == "DENY"
+    assert create_app(web_dir=tmp_path / "unbuilt").test_client().get("/").status_code == 503
+
+
+def test_pages_and_meta(monkeypatch, tmp_path):
     monkeypatch.delenv("PUBLIC_MODE", raising=False)
-    c = create_app().test_client()
+    c = create_app(web_dir=fake_web(tmp_path)).test_client()
     assert c.get("/").status_code == 200 and c.get("/evals").status_code == 200
     assert c.get("/bench/hotel/index.html").status_code == 200
     assert c.get("/bench/../personalab/server.py").status_code == 404
@@ -42,11 +67,14 @@ def test_run_end_to_end_and_report():
         g = c.post("/api/run", json={"url": f"{base}/hotel/index.html", "goal": "Find the phone number"}).json
     assert g["finished"] and g["total"] == 4 and g["completed"] == 3
     assert all(m["barrier_list"] for m in g["members"]) and all(m["tokens"] > 0 for m in g["members"])
+    worked = {m["persona"]: m["worked"] for m in g["members"]}
+    assert worked["keyboard"] == ["Headings were clear", "Phone number in the footer"] and worked["screen_reader"] == []
     rep = c.get(f"/api/run/{g['id']}/report.html")
     assert rep.headers["Content-Disposition"].startswith("attachment") and "3 of 4 people" in rep.get_data(as_text=True)
     j = c.get(f"/api/journey/{g['journeys'][0]}").json
     assert j["usage"]["llm_calls"] == 2
     assert "beforeprint" in rep.get_data(as_text=True)  # Save as PDF expands the step logs
+    assert "What worked" in rep.get_data(as_text=True) and "Phone number in the footer" in rep.get_data(as_text=True)
 
     # JSON export: what the browser stores in History and what users download / import
     ex = c.get(f"/api/run/{g['id']}/export.json")

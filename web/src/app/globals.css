@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Persona Lab: clean & minimal. Color tokens are CSS variables (light + dark), exposed to Tailwind. */
+:root {
+  --bg: #fafaf9; --surface: #ffffff; --ink: #0b0b0c; --ink-2: #57534e; --ink-3: #78716c;
+  --line: #e7e5e4; --line-2: #d6d3d1; --accent: #2f4fe0; --accent-soft: #eef1fe;
+  --ok: #15803d; --ok-soft: #ecfdf3; --bad: #b42318; --bad-soft: #fef3f2; --warn: #b54708;
+  --focus: #f59e0b; --term-bg: #111113; --term-ink: #e7e7ea; --series-1: #2a78d6;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  --shadow-pop: 0 12px 32px -8px rgba(16, 24, 40, .12), 0 2px 6px rgba(16, 24, 40, .05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0c0d; --surface: #161618; --ink: #f4f4f5; --ink-2: #b4b4bb; --ink-3: #8f8f98;
+    --line: #26262a; --line-2: #34343a; --accent: #7c93ff; --accent-soft: #1b2038;
+    --ok: #4ade80; --ok-soft: #0f2418; --bad: #f87171; --bad-soft: #2a1414; --warn: #fbbf24;
+    --term-bg: #0a0a0b; --series-1: #3987e5; --shadow-card: none; --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-focus: var(--focus);
+  --color-term-bg: var(--term-bg);
+  --color-term-ink: var(--term-ink);
+  --color-series-1: var(--series-1);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --animate-blink: blink 1.2s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes blink { 50% { opacity: .25; } }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+}
+
+@layer base {
+  body { @apply bg-bg text-ink font-sans antialiased; line-height: 1.55; }
+  h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.15; }
+  code { @apply font-mono; font-size: .85em; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+  [tabindex="-1"]:focus { outline: none; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+}
+
+/* A few repeated building blocks, so pages stay readable. */
+@layer components {
+  .wrap { @apply mx-auto w-full max-w-[1120px] px-4 sm:px-6; }
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-line-2 bg-surface px-4
+      text-[.9rem] font-semibold whitespace-nowrap text-ink no-underline hover:border-ink-3
+      disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer;
+  }
+  .btn-primary { @apply border-ink bg-ink text-bg hover:border-ink hover:opacity-90; }
+  .btn-lg { @apply h-[52px] rounded-xl px-[22px] text-base; }
+  .btn-sm { @apply h-8 rounded-lg px-3 text-[.82rem]; }
+  .card { @apply rounded-[14px] border border-line bg-surface; }
+  .pill {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-[3px]
+      text-[.78rem] font-semibold text-ink-2;
+  }
+  .pill-ok { @apply border-transparent bg-ok-soft text-ok; }
+  .pill-bad { @apply border-transparent bg-bad-soft text-bad; }
+  .input {
+    @apply h-[52px] w-full rounded-xl border border-line-2 bg-surface px-4 text-base text-ink placeholder:text-ink-3
+      focus:border-ink focus:outline-none focus:ring-4 focus:ring-ink/10;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

@@ -41,10 +41,17 @@ python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\a
 pip install -r requirements.txt
 playwright install chromium
 cp .env.example .env                                   # add ANTHROPIC_API_KEY
-python run.py                                          # http://localhost:5000
+(cd web && npm install && npm run build)               # Next.js frontend -> web/out (Node 20+)
+PORT=5050 python run.py                                # http://localhost:5050
 ```
 
-Try one of the built-in demo sites on the home page, or any public website.
+Try one of the built-in demo sites on the home page, or any public website. (On macOS, port 5000 is usually taken by AirPlay Receiver, hence `PORT=5050`.)
+
+Working on the frontend? Keep Flask running and start the Next.js dev server, which proxies `/api` and `/bench` to it:
+
+```bash
+cd web && npm run dev                                  # http://localhost:3000 (FLASK_URL defaults to http://127.0.0.1:5050)
+```
 
 ### Evaluate
 
@@ -71,6 +78,8 @@ The tests use a scripted fake Claude client to drive **real Chromium** through t
 docker build -t persona-lab . && docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... persona-lab
 ```
 
+The Dockerfile builds the Next.js frontend in a Node stage and copies the static export into the Python image, so it's still one container serving one origin.
+
 `PUBLIC_MODE=1` (set in the Dockerfile) blocks private/internal addresses for the typed URL and for every request the page makes (SSRF protection), and gives each visitor a small free daily allowance. Visitors can paste their own Anthropic key in Settings; it stays in their browser. `render.yaml` deploys to Render as a Blueprint. Chromium needs about 1 GB RAM. State is in memory, so run one worker (the Dockerfile does).
 
 ## Layout
@@ -84,12 +93,15 @@ personalab/
   sitecheck.py        page rules (axe-core / built-in) used by the baseline
   guard.py            SSRF guard, rate limits, concurrency caps
   export.py           single-file HTML reports
-  server.py           Flask app + JSON API
+  server.py           Flask app + JSON API; serves the built frontend
 benchmark/
   sites/              hotel, shop, clinic, library (accessible control)
   ground_truth.json   tasks, per-persona outcomes, planted barriers + matching rules
 evals/results/        one JSON per evaluation run
-static/               index.html (test a site), evals.html (dashboard): no build step
+web/                  Next.js 16 + TypeScript + Tailwind CSS v4, built as a static export (web/out)
+  src/app/            pages: / (test a site), /run, /saved, /history, /evals
+  src/components/     Nav (+ Settings), RunView (agents, barriers, steps drawer), DownloadMenu
+  src/lib/            typed API client, History (IndexedDB) + downloads, barrier merging, personas
 ```
 
 ## Related work

@@ -58,3 +58,40 @@ def test_bad_ref_is_reported_back_not_crashing():
     j, fake = run("low_vision", "hotel/index.html", script)
     assert j.steps[1]["error"] and "No element with ref" in j.steps[1]["result"]
     assert fake.calls[1]["messages"][-1]["content"][0]["is_error"] is True
+
+
+def test_requests_are_append_only_cached_and_context_managed():
+    # The API's preserved-thinking check rejects edited history, and edits break the cache: every request
+    # must start with the previous request's messages, byte for byte. Old results are cleared server-side.
+    def script(p, n, seen, kw):
+        if n < 3:
+            return [tool("click", ref=ref_for(seen, "Book a room")) if n == 0 else tool("look")]
+        return [tool("finish", success=True, summary="ok")]
+    j, fake = run("color_blind", "hotel/index.html", script)
+    assert len(fake.calls) == 4
+    for prev, cur in zip(fake.calls, fake.calls[1:]):
+        assert cur["messages"][:len(prev["messages"])] == prev["messages"]
+    kw = fake.calls[0]
+    assert kw["cache_control"] == {"type": "ephemeral"} and kw["output_config"]["effort"]
+    assert kw["max_tokens"] >= 16000  # room for thinking
+    assert kw["context_management"]["edits"][0]["type"] == "clear_tool_uses_20250919"
+    assert "finish" in kw["context_management"]["edits"][0]["exclude_tools"]
+    assert "fallbacks" not in kw  # "fake" isn't a model with server-side fallback
+    assert j.tokens_in == 4000 and j.tokens_cache_read == 400 * (0 + 1 + 2 + 3) and j.tokens_cache_write == 1200
+
+
+def test_fallbacks_only_for_models_that_support_them():
+    def script(p, n, seen, kw):
+        return [tool("finish", success=True, summary="ok")]
+    fake = Scripted(script)
+    with serve_sites() as base:
+        j = Journey(url=f"{base}/hotel/index.html", goal="test", persona="keyboard", profile={})
+        JourneyRunner(j, fake, "claude-opus-5-5").run()
+    kw = fake.calls[0]
+    assert kw["fallbacks"] == "default" and "server-side-fallback-2026-07-01" in kw["betas"]
+
+
+def test_refusal_ends_the_journey_with_a_clear_error():
+    # JourneyRunner raises; JourneyManager shows the message as the journey's error.
+    with pytest.raises(RuntimeError, match=r"declined to continue this test \(cyber\)"):
+        run("keyboard", "hotel/index.html", lambda p, n, seen, kw: "refuse")

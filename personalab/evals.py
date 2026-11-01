@@ -83,6 +83,18 @@ def match_findings(findings: list[dict], barriers: list[dict]) -> list[str | Non
     return out
 
 
+def run_cost(m: dict) -> float | None:
+    """$ for a run from PRICE_* env vars (per million tokens). Cache reads/writes default to 0.1x / 1.25x input."""
+    pin, pout = os.environ.get("PRICE_INPUT_PER_MTOK"), os.environ.get("PRICE_OUTPUT_PER_MTOK")
+    if not (pin and pout):
+        return None
+    pin, pout = float(pin), float(pout)
+    pread = float(os.environ.get("PRICE_CACHE_READ_PER_MTOK") or pin * 0.1)
+    pwrite = float(os.environ.get("PRICE_CACHE_WRITE_PER_MTOK") or pin * 1.25)
+    return round((m.get("input_tokens", 0) * pin + m.get("cache_read_tokens", 0) * pread
+                  + m.get("cache_write_tokens", 0) * pwrite + m.get("output_tokens", 0) * pout) / 1e6, 3)
+
+
 def judge_findings(client, model: str, findings: list[dict], barriers: list[dict]) -> list[str | None]:
     """Optional LLM-as-judge matcher (more lenient with wording than keywords)."""
     if not findings:
@@ -93,7 +105,9 @@ def judge_findings(client, model: str, findings: list[dict], barriers: list[dict
         + "\n\nFindings:\n" + "\n".join(f"{i}. {f.get('title', '')}: {f.get('detail', '')}" for i, f in enumerate(findings))
         + '\n\nAnswer with JSON only: {"0": "barrier-id or null", ...}'
     )
-    resp = client.messages.create(model=model, max_tokens=800, messages=[{"role": "user", "content": prompt}])
+    # Thinking counts toward max_tokens on current models; a short mapping task needs little effort.
+    resp = client.messages.create(model=model, max_tokens=8000, output_config={"effort": "low"},
+                                  messages=[{"role": "user", "content": prompt}])
     text = "".join(getattr(b, "text", "") for b in resp.content)
     try:
         data = json.loads(re.search(r"\{.*\}", text, re.S).group(0))
@@ -152,12 +166,14 @@ def score(bench: dict, journeys: list[dict], kind: str = "agents") -> dict:
             "avg_steps": round(sum(j["steps"] for j in ok) / len(ok), 1) if ok else None,
             "avg_seconds": round(sum(j["seconds"] for j in ok) / len(ok), 1) if ok else None,
             "input_tokens": sum(j.get("input_tokens", 0) for j in journeys),
+            "cache_read_tokens": sum(j.get("cache_read_tokens", 0) for j in journeys),
+            "cache_write_tokens": sum(j.get("cache_write_tokens", 0) for j in journeys),
             "output_tokens": sum(j.get("output_tokens", 0) for j in journeys),
             "llm_calls": sum(j.get("llm_calls", 0) for j in journeys),
         })
-        pin, pout = os.environ.get("PRICE_INPUT_PER_MTOK"), os.environ.get("PRICE_OUTPUT_PER_MTOK")
-        if pin and pout:
-            metrics["cost_usd"] = round(metrics["input_tokens"] / 1e6 * float(pin) + metrics["output_tokens"] / 1e6 * float(pout), 3)
+        cost = run_cost(metrics)
+        if cost is not None:
+            metrics["cost_usd"] = cost
         for p in personas:
             pj = [j for j in ok if j["persona"] == p]
             pp = [x for x in pairs if x[1] == p]
@@ -191,7 +207,7 @@ def _slug(s: str) -> str:
 
 def run_agents(client, model: str, label: str, task_ids=None, personas=None, concurrency: int = 4,
                judge: bool = False, save: bool = True, progress=print) -> dict:
-    from .journey import Journey, JourneyRunner
+    from .journey import EFFORT, Journey, JourneyRunner
 
     bench = load_benchmark()
     tasks = [t for t in bench["tasks"] if not task_ids or t["id"] in task_ids]
@@ -220,7 +236,8 @@ def run_agents(client, model: str, label: str, task_ids=None, personas=None, con
                 "task": task["id"], "site": task["site"], "persona": persona, "possible": task["possible"][persona],
                 "claimed": bool(j.success), "verified": verified(task, pub), "summary": j.summary, "error": j.error,
                 "steps": len(j.steps), "seconds": round(time.time() - t0, 1), "llm_calls": j.llm_calls,
-                "input_tokens": j.tokens_in, "output_tokens": j.tokens_out, "findings": findings, "visited": j.visited,
+                "input_tokens": j.tokens_in, "cache_read_tokens": j.tokens_cache_read, "cache_write_tokens": j.tokens_cache_write,
+                "output_tokens": j.tokens_out, "findings": findings, "visited": j.visited,
             }
             progress(f"  {task['id']:16} {persona:14} possible={row['possible']!s:5} claimed={row['claimed']!s:5} "
                      f"verified={row['verified']!s:5} findings={len(findings)} {row['seconds']}s" + (f" ERROR {j.error}" if j.error else ""))
@@ -232,7 +249,7 @@ def run_agents(client, model: str, label: str, task_ids=None, personas=None, con
 
     result = {
         "id": f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{_slug(label)}-{uuid.uuid4().hex[:4]}",
-        "label": label, "kind": "agents", "model": model, "matcher": "llm-judge" if judge else "keywords",
+        "label": label, "kind": "agents", "model": model, "effort": EFFORT, "matcher": "llm-judge" if judge else "keywords",
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "benchmark_version": bench["version"], "wall_seconds": round(time.time() - started, 1),
         "tasks": [t["id"] for t in tasks], "personas": personas,
