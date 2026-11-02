@@ -11,7 +11,7 @@ const LINKS = [
   { href: "/evals", label: "Evals", match: ["/evals"] },
 ];
 
-const linkCls = "rounded-lg px-2 py-2 text-[.85rem] whitespace-nowrap text-ink-2 no-underline hover:bg-line hover:text-ink sm:px-3 sm:text-[.9rem]";
+const linkCls = "rounded-full border-2 border-transparent px-2 py-1.5 text-[.85rem] font-semibold whitespace-nowrap text-ink-2 no-underline hover:border-edge hover:text-ink max-[379px]:px-1.5 max-[379px]:text-[.8rem] sm:px-3 sm:text-[.9rem]";
 
 export default function Nav() {
   const path = (usePathname() || "/").replace(/\/$/, "") || "/";
@@ -35,10 +35,10 @@ export default function Nav() {
   }, [loadStatus]);
 
   return (
-    <header className="no-print sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur-md backdrop-saturate-150">
-      <div className="wrap flex h-[60px] items-center justify-between gap-4">
-        <Link href="/" aria-label="Persona Lab home" className="inline-flex items-center gap-2.5 font-bold tracking-tight whitespace-nowrap no-underline">
-          <span aria-hidden="true" className="grid size-[26px] place-items-center rounded-lg bg-ink text-bg">
+    <header className="no-print relative top-0 z-20 border-b-2 sm:sticky border-edge bg-bg/90 backdrop-blur-md">
+      <div className="wrap flex min-h-[60px] flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
+        <Link href="/" aria-label="Persona Lab home" className="inline-flex items-center gap-2.5 font-display text-[1.05rem] font-bold tracking-tight whitespace-nowrap no-underline">
+          <span aria-hidden="true" className="grid size-[30px] -rotate-6 place-items-center rounded-lg border-2 border-edge bg-lime text-on-pop shadow-[2px_2px_0_var(--edge)]">
             <svg viewBox="0 0 16 16" className="size-4">
               <circle cx="5" cy="6" r="2.2" fill="currentColor" /><circle cx="11" cy="6" r="2.2" fill="currentColor" opacity=".55" />
               <path d="M1.5 13.5c.6-2.2 2-3.3 3.5-3.3s2.9 1.1 3.5 3.3M8 13.5c.6-2.2 1.6-3.3 3-3.3s2.6 1.1 3.3 3.3" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
@@ -46,13 +46,13 @@ export default function Nav() {
           </span>
           <span className="hidden min-[481px]:inline">Persona Lab</span>
         </Link>
-        <nav aria-label="Main" className="flex items-center gap-0.5 sm:gap-1">
-          <span role="status" className="mr-1 hidden rounded-full border border-line px-2.5 py-1 text-[.8rem] whitespace-nowrap text-ink-2 sm:inline">{status}</span>
+        <nav aria-label="Main" className="flex flex-wrap items-center justify-end gap-0.5 max-[379px]:w-full max-[379px]:justify-between sm:gap-1">
+          <span role="status" className="mr-1 hidden rounded-full border-2 border-edge bg-yellow px-2.5 py-0.5 text-[.8rem] font-semibold whitespace-nowrap text-on-pop sm:inline">{status}</span>
           {LINKS.map((l) => {
             const current = l.match.includes(path);
             return (
               <Link key={l.href} href={l.href} aria-current={current ? "page" : undefined}
-                className={`${linkCls} ${current ? "font-semibold text-ink" : ""}`}>{l.label}</Link>
+                className={`${linkCls} ${current ? "!border-edge bg-ink !text-bg" : ""}`}>{l.label}</Link>
             );
           })}
           <Settings className={linkCls} />
@@ -80,7 +80,7 @@ function Settings({ className }: { className: string }) {
     <>
       <button type="button" className={`${className} cursor-pointer`} onClick={openDialog}>Settings</button>
       <dialog ref={dlg} aria-labelledby="settings-h"
-        className="m-auto w-[min(520px,calc(100vw-32px))] rounded-2xl border border-line bg-surface p-6 text-ink shadow-pop backdrop:bg-black/40">
+        className="m-auto w-[min(520px,calc(100vw-32px))] rounded-2xl border-2 border-edge bg-surface p-6 text-ink shadow-pop backdrop:bg-black/40">
         <h2 id="settings-h" className="mb-2 text-xl font-semibold">Use your own Claude API key</h2>
         <p className="mb-3.5 text-[.9rem] text-ink-2">
           Optional. The public demo includes a few free runs per day. With your own key from{" "}

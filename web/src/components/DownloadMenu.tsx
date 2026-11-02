@@ -53,10 +53,10 @@ export default function DownloadMenu({ runId, onError, printHere }: { runId: str
       <summary className="btn btn-sm list-none [&::-webkit-details-marker]:hidden">
         Download <span aria-hidden="true">▾</span>
       </summary>
-      <div data-menu className="absolute top-[calc(100%+6px)] right-0 z-15 grid w-[min(300px,calc(100vw-32px))] gap-0.5 rounded-xl border border-line-2 bg-surface p-1.5 shadow-pop">
+      <div data-menu className="absolute top-[calc(100%+6px)] right-0 z-15 grid w-[min(300px,calc(100vw-32px))] gap-0.5 rounded-xl border-2 border-edge bg-surface p-1.5 shadow-pop">
         {OPTIONS.map(([kind, label, hint]) => (
           <button key={kind} type="button" onClick={() => pick(kind)}
-            className="cursor-pointer rounded-lg px-2.5 py-2 text-left text-[.9rem] font-semibold text-ink hover:bg-bg">
+            className="cursor-pointer rounded-lg px-2.5 py-2 text-left text-[.9rem] font-semibold text-ink hover:bg-yellow hover:text-on-pop [&:hover_small]:text-on-pop">
             {label}<small className="block text-[.78rem] font-normal text-ink-2">{hint}</small>
           </button>
         ))}

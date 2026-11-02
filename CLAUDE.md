@@ -5,7 +5,7 @@ Portfolio project for **AI/ML engineer** roles. One idea: AI agents that test a 
 disabled people browse it (keyboard only, blind screen-reader user, color-blind, low vision at 200% zoom),
 plus an **evaluation suite** that measures whether the agents can be trusted. Public demo, no login.
 
-The owner wants: one focused story, a clean & minimal design (Linear/Vercel style), and measured results
+The owner wants: one focused story, a bold Gen Z neo-brutalist design (thick black edges, hard offset shadows, flat lime/pink/yellow/sky pops, Space Grotesk headings) that still passes axe, and measured results
 (never invent eval numbers: only real runs go in `evals/results/`).
 
 ## Commands
@@ -13,6 +13,7 @@ The owner wants: one focused story, a clean & minimal design (Linear/Vercel styl
 - Frontend dev: Flask on 5050 + `cd web && npm run dev` (port 3000, proxies /api and /bench to Flask via `FLASK_URL`)
 - Frontend checks: `cd web && npx eslint src && npm run build`
 - Tests: `pytest -q` (a scripted fake Claude drives real Chromium; no API key needed)
+- Own accessibility: `pytest -q tests/test_a11y.py` (needs `web/out` built + `web/node_modules`): axe in light/dark at 1280 and 320px, keyboard walk + visible focus, target size, text spacing, reduced motion, pausable motion, form errors. Must stay green; /accessibility describes these checks, so update it if they change.
 - Evals: `python -m personalab.evals baseline` (rules only) · `python -m personalab.evals agents --label v1` (uses ANTHROPIC_API_KEY)
 - Setup: `pip install -r requirements.txt && playwright install chromium`, `cd web && npm install`, copy `.env.example` to `.env`
 
@@ -22,12 +23,13 @@ The owner wants: one focused story, a clean & minimal design (Linear/Vercel styl
 - `personalab/evals.py`: benchmark runner, scoring (barrier recall/precision, outcome accuracy, verified success, false success, cost), keyword matcher + optional LLM judge, rules baseline, CLI.
 - `benchmark/sites/*` + `benchmark/ground_truth.json`: 4 sites (hotel, shop, clinic, accessible library control), 12 planted barriers, 5 tasks with per-persona `possible` and objective `success` checks.
 - `personalab/server.py`: Flask API (`/api/run`, `/api/journey/<id>`, `/api/evals`, `/api/demos`); `guard.py`: PUBLIC_MODE SSRF guard + per-IP limits; `export.py`: HTML reports.
-- `web/`: Next.js 16 (App Router) + TypeScript + Tailwind v4, **static export** (`output: "export"` → `web/out`) served by Flask's catch-all route, so the app stays one container on one origin. Next 16 differs from older versions: read `web/node_modules/next/dist/docs/` before using a Next API (see `web/AGENTS.md`). Color tokens live in `src/app/globals.css` (CSS variables, light + dark) and are exposed as Tailwind colors (`bg-surface`, `text-ink-2`, …). Pages are thin server files exporting `metadata` + a `*Client.tsx` client component. History lives in IndexedDB (`src/lib/history.ts`); `GET /api/run/<id>/export.json` is the record format it stores and imports.
+- `web/`: Next.js 16 (App Router) + TypeScript + Tailwind v4, **static export** (`output: "export"` → `web/out`) served by Flask's catch-all route, so the app stays one container on one origin. Next 16 differs from older versions: read `web/node_modules/next/dist/docs/` before using a Next API (see `web/AGENTS.md`). Color tokens live in `src/app/globals.css` (CSS variables, light + dark) and are exposed as Tailwind colors (`bg-surface`, `text-ink-2`, `border-edge`, `bg-lime`, …); text on a pop color uses `text-on-pop` so it stays dark in dark mode. Pages are thin server files exporting `metadata` + a `*Client.tsx` client component. History lives in IndexedDB (`src/lib/history.ts`); `GET /api/run/<id>/export.json` is the record format it stores and imports.
 
 ## Conventions
 - Keep the UI accessible (it's an accessibility product): real buttons, labels, visible focus, no color-only meaning, works at 390px wide. The app's own persona checks should stay clean (axe-core scored 100 on every page after the Next.js migration).
 - Static export rules: no server-only Next features (rewrites/redirects/headers in production, server actions, dynamic routes without params); use query strings (`/run?id=`) and wrap `useSearchParams` in `<Suspense>`.
 - Agent API calls (`JourneyRunner._ask`): keep `messages` **append-only**. Never rewrite earlier turns (e.g. stripping old screenshots): on current models the preserved-thinking check returns 400 for accounts created after 2026-08-31, and it breaks prompt caching. Old tool results are cleared server-side via context editing (`CLEAR_OLD_RESULTS`). `tests/test_journey.py::test_requests_are_append_only_cached_and_context_managed` guards this. Effort comes from `CLAUDE_EFFORT` and is saved with eval runs.
+- Motion: keyframes live in `globals.css` `@theme` (Tailwind drops unused ones, so keyframes used only from inline styles go outside it, like `confetti`). Everything must still work under `prefers-reduced-motion` (a global rule turns animation off; `.reveal` content shows at once). Moving or decorative pieces are `aria-hidden`, and anything that keeps moving gets a pause control. "See it like them" (`SimBar.tsx`) filters only elements marked `data-sim-target`. If CSS changes don't show up after a build, delete `web/.next` (a stale Turbopack cache).
 - When changing ground truth, keep the benchmark consistent (`tests/test_evals.py::test_benchmark_is_consistent`).
 
 ## Status (Oct 31, 2026)

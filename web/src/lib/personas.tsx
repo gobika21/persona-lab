@@ -31,7 +31,9 @@ export const ICONS: Record<PersonaId, ReactNode> = {
   ),
 };
 
+export const POP: Record<PersonaId, string> = { keyboard: "bg-yellow", screen_reader: "bg-pink", color_blind: "bg-lime", low_vision: "bg-sky" };
+
 export function PersonaIcon({ id, size = "md" }: { id: PersonaId; size?: "sm" | "md" }) {
   const box = size === "sm" ? "size-7 rounded-lg [&>svg]:size-4" : "size-9 rounded-[10px] [&>svg]:size-5";
-  return <span className={`grid flex-none place-items-center bg-accent-soft text-accent ${box}`}>{ICONS[id]}</span>;
+  return <span className={`grid flex-none place-items-center border-2 border-edge text-on-pop ${POP[id]} ${box}`}>{ICONS[id]}</span>;
 }

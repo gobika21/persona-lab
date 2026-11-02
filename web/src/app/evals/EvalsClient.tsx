@@ -19,7 +19,7 @@ function Bars({ rows }: { rows: BarRow[] }) {
       {rows.map((r) => (
         <li key={r.name} title={`${r.name}: ${r.v == null ? "n/a" : pct(r.v)}${r.note ? " · " + r.note : ""}`}
           className="group grid grid-cols-[minmax(120px,34%)_1fr_48px] items-center gap-3 text-sm">
-          <span className="truncate text-ink">{r.name}{r.small && <small className="block text-[.75rem] text-ink-3">{r.small}</small>}</span>
+          <span className="min-w-0 break-words text-ink">{r.name}{r.small && <small className="block text-[.75rem] text-ink-3">{r.small}</small>}</span>
           <span role="img" aria-label={`${r.name}: ${r.v == null ? "not measured" : pct(r.v)}`}
             className="relative block h-[22px] before:absolute before:inset-x-0 before:top-2.5 before:h-0.5 before:bg-line">
             <span className="relative block h-full min-w-[3px] rounded-r bg-series-1 group-hover:brightness-110" style={{ width: `${r.v == null ? 0 : Math.max(1, r.v * 100)}%` }} />
@@ -94,7 +94,7 @@ export default function EvalsClient() {
           <div className="mb-4 flex flex-wrap items-center gap-2.5">
             <label htmlFor="run-select" className="text-sm text-ink-2">Showing run</label>
             <select id="run-select" value={r.id} onChange={(e) => { setFull(null); setSelected(e.target.value); }}
-              className="h-10 max-w-full rounded-[10px] border border-line-2 bg-surface px-3 text-[.9rem] text-ink">
+              className="h-10 max-w-full rounded-[10px] border-2 border-edge bg-surface px-3 text-[.9rem] text-ink">
               {results!.map((x) => <option key={x.id} value={x.id}>{x.label}{x.kind === "baseline" ? " (baseline)" : ""}</option>)}
             </select>
             <span className="text-sm text-ink-2">
@@ -141,7 +141,7 @@ export default function EvalsClient() {
           </div>
 
           <Card id="mx-h" className="mt-3" title="Which barriers were found" sub="Each planted barrier, who it affects, and whether each run detected it.">
-            <div className="mt-3.5 overflow-x-auto">
+            <div className="mt-3.5 overflow-x-auto" tabIndex={0} role="region" aria-label="Barrier table, scrolls sideways">
               <table className="w-full border-collapse text-sm">
                 <thead><tr>
                   <th scope="col" className={thHead}>Planted barrier</th><th scope="col" className={thHead}>Affects</th>
@@ -165,7 +165,7 @@ export default function EvalsClient() {
           {r.kind === "agents" && full?.id === r.id && (
             <Card id="out-h" className="mt-3" title="Task outcomes"
               sub="Did the agent reach the right verdict, and did it really finish? “Verified” is checked from the pages it reached and the answer it gave, not from what it claims.">
-              <div className="mt-3.5 overflow-x-auto">
+              <div className="mt-3.5 overflow-x-auto" tabIndex={0} role="region" aria-label="Outcome table, scrolls sideways">
                 <table className="w-full border-collapse text-sm">
                   <thead><tr>
                     {["Task", "Persona", "Possible?", "Agent said", "Verified"].map((h) => <th key={h} scope="col" className={thHead}>{h}</th>)}
@@ -211,7 +211,7 @@ export default function EvalsClient() {
 
 function Callout({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mt-3 rounded-[14px] border border-dashed border-line-2 bg-surface px-5 py-4.5">
+    <div className="mt-3 rounded-[14px] border-2 border-dashed border-edge bg-surface px-5 py-4.5">
       <h2 className="mb-1.5 text-base font-semibold">{title}</h2>
       <p className="text-sm text-ink-2 [&_code]:rounded-md [&_code]:border [&_code]:border-line [&_code]:bg-bg [&_code]:px-1.5 [&_code]:py-0.5">{children}</p>
     </div>

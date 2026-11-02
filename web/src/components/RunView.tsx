@@ -6,6 +6,7 @@ import { api, type Group, type Journey, type Member, type Step } from "@/lib/api
 import { mergeBarriers, shortLabel } from "@/lib/barriers";
 import type { HistoryEntry } from "@/lib/history";
 import { ORDER, PERCEIVES, PersonaIcon } from "@/lib/personas";
+import Confetti from "./Confetti";
 import DownloadMenu from "./DownloadMenu";
 
 const SEV: Record<string, [string, string, string]> = {
@@ -42,7 +43,7 @@ export default function RunView({ group: g, saved, shots = {}, note, onStop }: P
     <div className="wrap pb-16">
       <div className="flex flex-wrap items-start justify-between gap-4 pt-7 pb-2">
         <div className="min-w-0">
-          <Link href={saved ? "/history" : "/"} className="no-print inline-flex items-center gap-1.5 text-sm text-ink-2 no-underline hover:text-ink">
+          <Link href={saved ? "/history" : "/"} className="no-print inline-flex min-h-7 items-center gap-1.5 text-sm text-ink-2 no-underline hover:text-ink">
             <span aria-hidden="true">←</span> {saved ? "All saved tests" : "New test"}
           </Link>
           <h1 className="mt-2.5 text-[1.05rem] font-semibold tracking-normal">{g.goal}</h1>
@@ -58,7 +59,7 @@ export default function RunView({ group: g, saved, shots = {}, note, onStop }: P
       <div aria-live="polite" className="my-5 grid gap-2.5">
         {g.finished ? (
           <>
-            <span className={`text-[clamp(3rem,9vw,5.5rem)] leading-[.95] font-extrabold tracking-[-0.05em] tabular-nums ${g.completed === g.total ? "text-ok" : "text-bad"}`}>
+            <span className={`origin-left animate-pop font-display text-[clamp(3rem,9vw,5.5rem)] leading-[.95] font-extrabold tracking-[-0.05em] tabular-nums ${g.completed === g.total ? "text-ok" : "text-bad"}`}>
               {g.completed} of {g.total}
             </span>
             <span className="max-w-[46ch] text-[clamp(1.15rem,2.6vw,1.6rem)] leading-tight font-semibold tracking-[-0.02em]">
@@ -73,14 +74,15 @@ export default function RunView({ group: g, saved, shots = {}, note, onStop }: P
         )}
       </div>
       {!g.finished && (
-        <div aria-hidden="true" className="mt-1 h-1 overflow-hidden rounded bg-line">
-          <i className="block h-full bg-ink transition-[width] duration-400" style={{ width: `${Math.max(4, (done / g.total) * 100)}%` }} />
+        <div aria-hidden="true" className="mt-1 h-3 overflow-hidden rounded-full border-2 border-edge bg-surface">
+          <i className="block h-full bg-lime transition-[width] duration-400" style={{ width: `${Math.max(4, (done / g.total) * 100)}%` }} />
         </div>
       )}
 
       <section aria-labelledby="agents-h" className="mt-6 grid gap-4 min-[861px]:grid-cols-2 print:grid-cols-2">
         <h2 id="agents-h" className="sr-only">How each person did</h2>
-        {members.map((m) => <AgentCard key={m.id} m={m} saved={!!saved} shot={saved ? shots[m.id] : m.shot ? `/api/journey/${m.id}/shot/${m.shot}.jpg` : undefined} onSteps={() => setDrawer(m)} />)}
+        {g.finished && !saved && g.completed === g.total && <Confetti />}
+        {members.map((m, i) => <AgentCard key={m.id} i={i} m={m} saved={!!saved} shot={saved ? shots[m.id] : m.shot ? `/api/journey/${m.id}/shot/${m.shot}.jpg` : undefined} onSteps={() => setDrawer(m)} />)}
       </section>
 
       {g.finished && <Barriers g={g} />}
@@ -90,7 +92,7 @@ export default function RunView({ group: g, saved, shots = {}, note, onStop }: P
   );
 }
 
-function AgentCard({ m, shot, saved, onSteps }: { m: Member; shot?: string; saved: boolean; onSteps: () => void }) {
+function AgentCard({ m, i, shot, saved, onSteps }: { m: Member; i: number; shot?: string; saved: boolean; onSteps: () => void }) {
   const last = m.last || ({} as NonNullable<Member["last"]>);
   const thought = m.status === "error" ? m.error : isDone(m) ? m.summary || "" : last.thought || m.current || "Starting…";
   const finished = isDone(m) || m.status === "error";
@@ -119,13 +121,14 @@ function AgentCard({ m, shot, saved, onSteps }: { m: Member; shot?: string; save
   }
 
   return (
-    <article aria-labelledby={`h-${m.id}`} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-card break-inside-avoid">
-      <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-3">
+    <article aria-labelledby={`h-${m.id}`} className="flex animate-rise flex-col overflow-hidden card rounded-2xl break-inside-avoid transition-transform duration-200 hover:-translate-y-1"
+      style={{ animationDelay: `${i * 90}ms` }}>
+      <div className="flex items-center gap-2.5 border-b-2 border-edge px-3.5 py-3">
         <PersonaIcon id={m.persona} size="sm" />
         <h3 id={`h-${m.id}`} className="min-w-0 flex-1 text-[.92rem] font-semibold tracking-[-0.01em]">{m.persona_label}</h3>
-        <span className={`pill ${pillCls}`}>{pill}</span>
+        <span key={m.status + (m.success ? "1" : "0")} className={`pill animate-pop ${pillCls}`}>{pill}</span>
       </div>
-      <div className="relative aspect-16/10 overflow-hidden border-b border-line bg-bg">{screen}</div>
+      <div className="relative aspect-16/10 overflow-hidden border-b-2 border-edge bg-bg">{screen}</div>
       <div className="grid flex-1 content-start gap-3 px-3.5 pt-3 pb-3.5">
         <p className={`text-sm text-ink-2 italic ${finished ? "" : "line-clamp-2 min-h-[2.8em]"}`}>
           {thought ? (finished ? thought : `“${thought}”`) : ""}
@@ -201,14 +204,14 @@ function Barriers({ g }: { g: Group }) {
         {items.map((b, i) => {
           const [ic, label, cls] = SEV[b.severity ?? ""] || SEV.minor;
           return (
-            <li key={i} className="grid grid-cols-[auto_1fr] gap-3.5 rounded-[14px] border border-line bg-surface px-[18px] py-4 break-inside-avoid">
+            <li key={i} className="grid animate-rise grid-cols-[auto_1fr] gap-3.5 card px-[18px] py-4 break-inside-avoid" style={{ animationDelay: `${Math.min(i, 8) * 70}ms` }}>
               <span aria-hidden="true" className={`grid size-7 place-items-center rounded-lg text-[.85rem] font-extrabold ${cls}`}>{ic}</span>
               <div>
                 <h3 className="text-[.98rem] font-semibold tracking-[-0.01em]">
                   <span className="mr-2 text-[.72rem] font-bold tracking-wider text-ink-3 uppercase">{label}</span>{b.title}
                 </h3>
                 {b.detail && <p className="mt-1 text-[.9rem] text-ink-2">{b.detail}</p>}
-                {b.fix && <div className="mt-2.5 rounded-[10px] border border-line bg-bg px-3 py-2 text-sm"><b className="font-semibold">Fix:</b> {b.fix}</div>}
+                {b.fix && <div className="mt-2.5 rounded-[10px] border-2 border-edge bg-lime/40 px-3 py-2 text-sm"><b className="font-semibold">Fix:</b> {b.fix}</div>}
                 {b.also.length > 0 && <p className="mt-2 text-[.78rem] text-ink-3">Also detected automatically: {b.also.join("; ")}</p>}
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {[...b.who].map((w) => <span key={w} className="rounded-full border border-line px-2 py-0.5 text-[.75rem] text-ink-2">{w}</span>)}
@@ -259,7 +262,7 @@ function StepsDrawer({ member, saved, onClose }: { member: Member | null; saved?
 
   return (
     <dialog ref={dlg} aria-labelledby="drawer-h" onClose={onClose}
-      className="m-0 ml-auto h-dvh max-h-dvh w-[min(560px,100vw)] max-w-none border-0 border-l border-line bg-surface p-0 text-ink backdrop:bg-black/35">
+      className="m-0 ml-auto h-dvh max-h-dvh w-[min(560px,100vw)] max-w-none border-0 border-l-2 border-edge bg-surface p-0 text-ink backdrop:bg-black/35">
       <div className="sticky top-0 z-1 flex items-center justify-between gap-3 border-b border-line bg-surface px-5 py-4">
         <h2 id="drawer-h" className="text-[1.05rem] font-semibold">{member?.persona_label || "Steps"}</h2>
         <div className="flex gap-2">

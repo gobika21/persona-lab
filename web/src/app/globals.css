@@ -1,21 +1,24 @@
 @import "tailwindcss";
 
-/* Persona Lab: clean & minimal. Color tokens are CSS variables (light + dark), exposed to Tailwind. */
+/* Persona Lab: neo-brutalist. Hard black edges, offset shadows, flat pop colors. Tokens are CSS variables
+   (light + dark), exposed to Tailwind. Text on a pop color always uses --on-pop so contrast holds in both modes. */
 :root {
-  --bg: #fafaf9; --surface: #ffffff; --ink: #0b0b0c; --ink-2: #57534e; --ink-3: #78716c;
-  --line: #e7e5e4; --line-2: #d6d3d1; --accent: #2f4fe0; --accent-soft: #eef1fe;
-  --ok: #15803d; --ok-soft: #ecfdf3; --bad: #b42318; --bad-soft: #fef3f2; --warn: #b54708;
-  --focus: #f59e0b; --term-bg: #111113; --term-ink: #e7e7ea; --series-1: #2a78d6;
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
-  --shadow-pop: 0 12px 32px -8px rgba(16, 24, 40, .12), 0 2px 6px rgba(16, 24, 40, .05);
+  --bg: #fff8e7; --surface: #ffffff; --ink: #111111; --ink-2: #3b3833; --ink-3: #5a564e;
+  --line: #e2d7bd; --line-2: #111111; --edge: #111111; --accent: #5232e8; --accent-soft: #e7e0ff;
+  --ok: #0b6b2b; --ok-soft: #c9f5d5; --bad: #b3121a; --bad-soft: #ffdcd8; --warn: #8a4a00;
+  --focus: #5232e8; --term-bg: #111113; --term-ink: #e7e7ea; --series-1: #2a78d6;
+  --lime: #c6f432; --pink: #ff9ad5; --yellow: #ffd23f; --sky: #9cc3ff; --on-pop: #111111;
+  --shadow-card: 4px 4px 0 var(--edge);
+  --shadow-pop: 7px 7px 0 var(--edge);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0c0c0d; --surface: #161618; --ink: #f4f4f5; --ink-2: #b4b4bb; --ink-3: #8f8f98;
-    --line: #26262a; --line-2: #34343a; --accent: #7c93ff; --accent-soft: #1b2038;
-    --ok: #4ade80; --ok-soft: #0f2418; --bad: #f87171; --bad-soft: #2a1414; --warn: #fbbf24;
-    --term-bg: #0a0a0b; --series-1: #3987e5; --shadow-card: none; --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, .6);
+    --bg: #121212; --surface: #1c1c1c; --ink: #f7f3e8; --ink-2: #cdc7b9; --ink-3: #a8a295;
+    --line: #34322d; --line-2: #f7f3e8; --edge: #f7f3e8; --accent: #c0b0ff; --accent-soft: #2b2452;
+    --ok: #6ee69a; --ok-soft: #12321e; --bad: #ff8f85; --bad-soft: #3d1614; --warn: #fbbf24;
+    --focus: #c6f432; --term-bg: #0a0a0b; --series-1: #3987e5;
+    --shadow-card: 4px 4px 0 var(--lime); --shadow-pop: 7px 7px 0 var(--lime);
     color-scheme: dark;
   }
 }
@@ -39,52 +42,101 @@
   --color-term-bg: var(--term-bg);
   --color-term-ink: var(--term-ink);
   --color-series-1: var(--series-1);
+  --color-edge: var(--edge);
+  --color-lime: var(--lime);
+  --color-pink: var(--pink);
+  --color-yellow: var(--yellow);
+  --color-sky: var(--sky);
+  --color-on-pop: var(--on-pop);
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
+  --font-display: var(--font-grotesk), var(--font-inter), system-ui, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   --animate-blink: blink 1.2s ease-in-out infinite;
   --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-marquee: marquee 28s linear infinite;
+  --animate-rise: rise .6s cubic-bezier(.2,.9,.3,1.2) both;
+  --animate-pop: pop .45s cubic-bezier(.3,1.6,.5,1) both;
+  --animate-float: float 1.8s ease-in-out 2; /* stops before 5s: WCAG 2.2.2 */
+  --animate-wiggle: wiggle .5s ease-in-out;
   @keyframes blink { 50% { opacity: .25; } }
   @keyframes shimmer { to { background-position: -200% 0; } }
+  @keyframes marquee { to { transform: translateX(-50%); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(18px) rotate(var(--r, 0deg)); } }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.6); } 70% { transform: scale(1.08); } }
+  @keyframes float { 50% { transform: translateY(-5px) rotate(-3deg); } }
+  @keyframes wiggle { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+  @keyframes swipe { from { transform: scaleX(0) rotate(-2deg); } }
 }
+
+/* Used from inline styles (Confetti.tsx), so it lives outside @theme where unused keyframes are dropped. */
+@keyframes confetti { to { transform: translate(var(--dx), 110vh) rotate(var(--rot)); } }
 
 @layer base {
   body { @apply bg-bg text-ink font-sans antialiased; line-height: 1.55; }
-  h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.15; }
+  h1, h2, h3 { @apply font-display; letter-spacing: -0.03em; line-height: 1.1; }
   code { @apply font-mono; font-size: .85em; }
   :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
   [tabindex="-1"]:focus { outline: none; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
+  /* Keep focused things clear of the sticky header (WCAG 2.4.11). Below sm the header isn't sticky. */
+  @media (min-width: 640px) { html { scroll-padding-top: 84px; } }
 }
 
 /* A few repeated building blocks, so pages stay readable. */
 @layer components {
   .wrap { @apply mx-auto w-full max-w-[1120px] px-4 sm:px-6; }
   .btn {
-    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-line-2 bg-surface px-4
-      text-[.9rem] font-semibold whitespace-nowrap text-ink no-underline hover:border-ink-3
-      disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer;
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border-2 border-edge bg-surface px-4
+      text-[.9rem] font-bold whitespace-nowrap text-ink no-underline shadow-[3px_3px_0_var(--edge)]
+      transition-[transform,box-shadow] duration-100 hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_var(--edge)]
+      active:translate-x-[3px] active:translate-y-[3px] active:shadow-none
+      disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-0 cursor-pointer;
   }
-  .btn-primary { @apply border-ink bg-ink text-bg hover:border-ink hover:opacity-90; }
+  .btn-primary { @apply bg-lime text-on-pop; }
   .btn-lg { @apply h-[52px] rounded-xl px-[22px] text-base; }
-  .btn-sm { @apply h-8 rounded-lg px-3 text-[.82rem]; }
-  .card { @apply rounded-[14px] border border-line bg-surface; }
+  .btn-sm { @apply h-8 rounded-lg px-3 text-[.82rem] shadow-[2px_2px_0_var(--edge)] hover:shadow-[3px_3px_0_var(--edge)]; }
+  .card { @apply rounded-[14px] border-2 border-edge bg-surface shadow-card; }
   .pill {
-    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-[3px]
-      text-[.78rem] font-semibold text-ink-2;
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 border-edge bg-surface px-2.5 py-[2px]
+      text-[.78rem] font-bold text-ink;
   }
-  .pill-ok { @apply border-transparent bg-ok-soft text-ok; }
-  .pill-bad { @apply border-transparent bg-bad-soft text-bad; }
+  .pill-ok { @apply bg-lime text-on-pop; }
+  .pill-bad { @apply bg-pink text-on-pop; }
   .input {
-    @apply h-[52px] w-full rounded-xl border border-line-2 bg-surface px-4 text-base text-ink placeholder:text-ink-3
-      focus:border-ink focus:outline-none focus:ring-4 focus:ring-ink/10;
+    @apply h-[52px] w-full rounded-xl border-2 border-edge bg-surface px-4 text-base text-ink placeholder:text-ink-3
+      transition-shadow duration-100 focus:shadow-[4px_4px_0_var(--accent)] focus:outline-none;
   }
+  /* A highlighter swipe behind a word. */
+  .marker { @apply relative z-0 inline-block px-[.12em] text-on-pop; }
+  .marker::before {
+    content: ""; @apply absolute inset-x-0 top-[.12em] bottom-[.02em] -z-10 -rotate-2 rounded-md bg-pink;
+    transform-origin: left; animation: swipe .7s .5s cubic-bezier(.6,0,.2,1) both;
+  }
+  /* Scroll reveal: Reveal.tsx adds .in when the element enters the viewport. */
+  .reveal { transition: opacity .6s ease, transform .6s cubic-bezier(.2,.9,.3,1.2); transition-delay: var(--d, 0ms); }
+  .reveal:not(.in) { opacity: 0; transform: translateY(24px); }
+  @media (prefers-reduced-motion: reduce) { .reveal:not(.in) { opacity: 1; transform: none; } }
+  /* "See it like them": SimBar sets html[data-sim]; only marked regions are filtered so the controls stay usable. */
+  html[data-sim="color_blind"] [data-sim-target] { filter: url(#pl-deuteranopia); }
+  html[data-sim="low_vision"] [data-sim-target] { filter: blur(1.8px) contrast(.7); }
+  html[data-sim="screen_reader"] [data-sim-target] { filter: blur(14px) brightness(.5); }
+  html[data-sim="keyboard"] [data-sim-target], html[data-sim="keyboard"] [data-sim-target] * { cursor: none !important; }
+  [data-sim-target] { transition: filter .5s ease; }
+}
+
+/* Windows High Contrast and other forced-color modes drop backgrounds and shadows: keep states visible. */
+@media (forced-colors: active) {
+  [aria-pressed="true"], [aria-current="page"] { outline: 2px solid CanvasText; outline-offset: 2px; }
+  .marker::before { display: none; }
+  .marker { text-decoration: underline; }
 }
 
 @media print {
   .no-print { display: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
   body { background: #fff; }
 }

@@ -22,7 +22,6 @@ export default function HistoryClient() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read the browser's saved tests on mount
     load();
-    heading.current?.focus();
   }, [load]);
 
   // Preview images live in IndexedDB as Blobs; give them object URLs while this list is shown.
@@ -85,7 +84,7 @@ export default function HistoryClient() {
       <p role="status" aria-live="polite" className="min-h-[1.4em] text-sm text-ink-2">{msg}</p>
 
       {items && items.length === 0 && (
-        <div className="mt-3 rounded-[14px] border border-dashed border-line-2 bg-surface px-5 py-4.5">
+        <div className="mt-3 rounded-[14px] border-2 border-dashed border-edge bg-surface px-5 py-4.5">
           <h2 className="mb-1.5 text-base font-semibold">No saved tests yet</h2>
           <p className="text-sm text-ink-2">
             When a test finishes it appears here automatically. <Link href="/" className="underline">Run a test</Link>, or import a JSON file you downloaded earlier.
@@ -99,7 +98,7 @@ export default function HistoryClient() {
             <li key={r.id} className="card grid grid-cols-[96px_1fr] gap-3.5 p-3.5 sm:grid-cols-[176px_1fr] sm:gap-5 sm:p-4">
               {/* Preview for pointer users; the title link below is the same destination for keyboard and screen readers. */}
               <Link href={`/saved?id=${r.id}`} tabIndex={-1} aria-hidden="true"
-                className="relative block aspect-16/10 self-start overflow-hidden rounded-lg border border-line bg-bg hover:border-ink-3">
+                className="relative block aspect-16/10 self-start overflow-hidden rounded-lg border-2 border-edge bg-bg hover:border-ink-3">
                 {thumbs[r.id]
                   // eslint-disable-next-line @next/next/no-img-element -- blob: URL from IndexedDB
                   ? <img src={thumbs[r.id]} alt="" className="size-full object-cover object-top-left" />
