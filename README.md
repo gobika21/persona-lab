@@ -74,7 +74,17 @@ The tests use a scripted fake Claude client to drive **real Chromium** through t
 
 ## Deploy (public demo, no login)
 
-**On Render:** push to GitHub, then in Render choose New > Blueprint and pick the repo; `render.yaml` sets everything up.
+**Free, on Hugging Face Spaces:** log in once with `hf auth login` (a token with write access), then
+
+```bash
+scripts/deploy-hf.sh <hf-username>/persona-lab
+```
+
+It creates a Docker Space if needed and uploads exactly what is committed (never `.env`), with the Space settings added
+to the uploaded README. The free CPU tier has enough memory for the four browsers; a Space sleeps after a while without
+visitors and takes a minute to wake. Add `ANTHROPIC_API_KEY` as a Space secret only if visitors should run on your key.
+
+**On Render (paid Starter plan):** push to GitHub, then in Render choose New > Blueprint and pick the repo; `render.yaml` sets everything up.
 Set `ANTHROPIC_API_KEY` in the Render dashboard if you want visitors to get free runs on your key (capped per day, below);
 leave it unset and visitors use their own key. The `starter` plan is needed: headless Chromium wants about 1 GB RAM.
 

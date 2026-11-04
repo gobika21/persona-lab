@@ -39,5 +39,5 @@ The owner wants: one focused story, a bold Gen Z neo-brutalist design (thick bla
 ## Status (Oct 31, 2026)
 - Done: personas, live 2×2 run view, verdict + merged barriers, step drawer, HTML reports, evals harness + dashboard, real rules-only baseline (built-in rules: 50% recall, 100% precision).
 - Done since: History (IndexedDB) + downloads (HTML/PDF/CSV/JSON, JSON import); frontend migrated to Next.js + TypeScript + Tailwind.
-- Not yet done: first **real agent eval run** (needs API key), a real Docker build (no Docker on the dev Mac; steps were replicated locally), Render deployment.
+- Not yet done: first **real agent eval run** (needs API key), a real Docker build (no Docker on the dev Mac; steps were replicated locally). Deploy: free Hugging Face Space via `scripts/deploy-hf.sh <user>/<space>` (Render Blueprint also works, paid).
 - Ideas next: prompt v2 and show measured improvement on /evals; "Fix & Prove" (agent patches the page and re-runs the journey); CI action; more benchmark sites + repeated runs for variance; LLM-judge agreement vs human labels.
