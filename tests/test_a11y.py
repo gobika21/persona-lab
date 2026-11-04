@@ -4,6 +4,7 @@ axe-core only catches part of WCAG, so this also covers what it can't: keyboard 
 focus hidden under the sticky header, reflow at 320px (= 400% zoom), target size, text spacing,
 reduced motion and pausable motion. Needs `cd web && npm install && npm run build`; skipped otherwise.
 """
+import shutil
 import threading
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 from werkzeug.serving import make_server
 
 from personalab.evals import serve_sites
+from personalab.replay import save as save_replay
 from personalab.server import create_app
 from tests.helpers import HAVE_BROWSER, Scripted, tool
 
@@ -31,11 +33,15 @@ def script(persona, n, seen, kw):
 
 
 @pytest.fixture(scope="module")
-def site():
-    app = create_app(agent_client=Scripted(script))
+def site(tmp_path_factory):
+    web = tmp_path_factory.mktemp("web") / "out"
+    shutil.copytree(WEB_OUT, web, ignore=shutil.ignore_patterns("replays"))
+    app = create_app(agent_client=Scripted(script), web_dir=web)
     app.config["SYNC"] = True
+    client = app.test_client()
     with serve_sites() as bench:
-        gid = app.test_client().post("/api/run", json={"url": f"{bench}/hotel/index.html", "goal": "Book a room"}).json["id"]
+        gid = client.post("/api/run", json={"url": f"{bench}/hotel/index.html", "goal": "Book a room"}).json["id"]
+    save_replay(gid, "demo", lambda path: client.get(path).data, web / "replays")
     srv = make_server("127.0.0.1", 0, app, threaded=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_port}", gid
@@ -52,7 +58,7 @@ def browser():
 
 
 def pages(gid):
-    return ["/", "/history", "/evals", f"/run?id={gid}", "/accessibility", "/no-such-page"]
+    return ["/", "/history", "/evals", f"/run?id={gid}", "/replay", "/replay?id=demo", "/compare?a=demo&b=demo", "/accessibility", "/no-such-page"]
 
 
 def open_page(browser, url, width=1280, scheme="light", motion="reduce"):
@@ -90,7 +96,7 @@ def test_keyboard_order_and_visible_focus(site, browser):
     hidden under the sticky header (WCAG 2.4.7, 2.4.11). The first stop is the skip link and it works."""
     base, gid = site
     problems = []
-    for path in ["/", "/history", "/evals", f"/run?id={gid}"]:
+    for path in ["/", "/history", "/evals", f"/run?id={gid}", "/replay?id=demo", "/compare?a=demo&b=demo"]:
         ctx, page = open_page(browser, base + path)
         page.keyboard.press("Tab")
         assert page.evaluate("document.activeElement.textContent.trim()") == "Skip to content", path
@@ -147,7 +153,7 @@ def test_text_spacing_does_not_clip(site, browser):
     """WCAG 1.4.12: with the text-spacing overrides applied, no text is cut off or overflows the page."""
     base, gid = site
     problems = []
-    for path in ["/", f"/run?id={gid}", "/history", "/evals"]:
+    for path in ["/", f"/run?id={gid}", "/replay?id=demo", "/history", "/evals"]:
         ctx, page = open_page(browser, base + path, width=390)
         page.add_style_tag(content="* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; }"
                                    " p { margin-bottom: 2em !important; }")
@@ -168,11 +174,13 @@ def test_text_spacing_does_not_clip(site, browser):
 
 def test_reduced_motion_stops_everything(site, browser):
     base, gid = site
-    for path in ["/", f"/run?id={gid}"]:
+    for path in ["/", f"/run?id={gid}", "/replay?id=demo"]:
         ctx, page = open_page(browser, base + path, motion="reduce")
         running = page.evaluate("document.getAnimations().filter(a => a.playState === 'running').length")
         hidden = page.evaluate("[...document.querySelectorAll('.reveal')].filter(e => getComputedStyle(e).opacity !== '1').length")
         assert running == 0 and hidden == 0, (path, running, hidden)
+        if "replay" in path:  # a replay waits for Play instead of starting on its own
+            assert page.get_by_role("button", name="Play").is_visible()
         ctx.close()
 
 
@@ -186,6 +194,21 @@ def test_moving_content_can_be_paused(site, browser):
     assert set(endless) <= {"pausable"}, endless
     page.get_by_role("button", name="Pause the scrolling banner").click()
     assert page.evaluate("document.getAnimations().filter(a => a.playState === 'running').length") == 0
+    ctx.close()
+
+
+def test_replay_plays_to_the_real_result(site, browser):
+    base, _ = site
+    ctx, page = open_page(browser, base + "/replay?id=demo")
+    assert "trying to book a room" in page.inner_text("main")
+    page.get_by_role("button", name="Play").click()
+    page.get_by_role("button", name="4× speed").click()
+    assert page.get_by_role("button", name="4× speed").get_attribute("aria-pressed") == "true"
+    page.get_by_role("button", name="Skip to result").click()
+    text = page.inner_text("main")
+    assert "3 of 4" in text and "Stuck: keyboard-only user" in text and "Book button can't be reached" in text
+    assert page.get_by_role("button", name="Replay").is_visible()
+    assert page.get_by_role("link", name="Download").count() == 0 and page.get_by_role("button", name="Download").count() == 0
     ctx.close()
 
 

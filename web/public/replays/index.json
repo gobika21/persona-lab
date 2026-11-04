@@ -1,0 +1,14 @@
+[
+  {
+    "id": "wikipedia-burj-khalifa",
+    "goal": "Find the year the Burj Khalifa opened",
+    "url": "https://en.wikipedia.org/wiki/Burj_Khalifa",
+    "recorded_at": "2026-11-04T09:11:43+00:00",
+    "model": "claude-opus-5-5",
+    "completed": 4,
+    "total": 4,
+    "steps": 14,
+    "shots": 8,
+    "cost_usd": 0.141
+  }
+]

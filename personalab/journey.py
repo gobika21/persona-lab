@@ -27,6 +27,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from . import colorlab as cl
 from .guard import Busy, BusyError, check_url, install_route_guard
+from .pricing import cost_usd
 from .sitecheck import normalize_url
 
 HERE = Path(__file__).resolve().parent
@@ -711,6 +712,32 @@ def _block(b: Any) -> dict:
     return b.model_dump(exclude_none=True)
 
 
+def _cost(j: Journey) -> float | None:
+    return cost_usd(j.model, j.tokens_in, j.tokens_out, j.tokens_cache_read, j.tokens_cache_write)
+
+
+def explain_error(exc: Exception) -> str:
+    """A plain-language reason a journey couldn't run. Claude API errors arrive as raw JSON dumps, so name the cause
+    and the fix instead (these are about the account or the service, not the site being tested)."""
+    status = getattr(exc, "status_code", None)
+    text = str(exc)
+    low = text.lower()
+    if "credit balance" in low:
+        return ("The Anthropic account behind this API key has no credits left, so no agent could think. "
+                "Add credits at console.anthropic.com (Plans & Billing), then run the test again.")
+    if status == 401 or "invalid x-api-key" in low:
+        return "Anthropic rejected the API key. Check it with the API key button at the top, then run the test again."
+    if status == 403:
+        return "This API key isn't allowed to use the model. Check the key's permissions in the Anthropic console."
+    if status == 404 and "model" in low:
+        return "This API key can't use the configured model. Check CLAUDE_MODEL or the key's access."
+    if status == 429:
+        return "Claude's rate limit for this API key was reached. Wait a minute, then run the test again."
+    if status in (500, 502, 503, 529) or "overloaded" in low:
+        return "Claude is busy or briefly unavailable. Wait a minute, then run the test again."
+    return text.splitlines()[0] if text else exc.__class__.__name__
+
+
 def _last_step(j: Journey) -> dict | None:
     """The most recent step with something to show (for the live grid)."""
     reads = [st for st in j.steps if st.get("heard") and st["tool"] in ("read_page", "list_elements", "find_text")]
@@ -757,7 +784,7 @@ class JourneyManager:
                         j.success = False
                         j.summary = j.summary or "The journey ended before the goal was confirmed."
             except Exception as exc:  # surfaced to the UI
-                j.status, j.error = "error", (str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__)
+                j.status, j.error = "error", explain_error(exc)
             finally:
                 j.finished_at = time.time()
                 j.current = ""
@@ -811,9 +838,11 @@ class JourneyManager:
                  "last": _last_step(m), "shot": max(m.shots) if m.shots else None,
                  "barrier_list": [{k: b.get(k) for k in ("title", "detail", "severity", "wcag", "fix")} | {"source": src}
                                   for src, bs in (("agent", m.barriers), ("auto", m.auto_findings)) for b in bs],
-                 "tokens": m.tokens_in + m.tokens_cache_read + m.tokens_cache_write + m.tokens_out}
+                 "tokens": m.tokens_in + m.tokens_cache_read + m.tokens_cache_write + m.tokens_out,
+                 "cost_usd": _cost(m)}
                 for m in members
             ],
+            "cost_usd": None if any(_cost(m) is None for m in members) else round(sum(_cost(m) for m in members), 4),
             "finished": len(done) == len(members),
             "completed": sum(1 for m in members if m.success),
             "total": len(members),

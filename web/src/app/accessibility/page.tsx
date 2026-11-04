@@ -29,7 +29,7 @@ export default function Page() {
         <li>A “Skip to content” link, real headings, landmarks and labelled form fields.</li>
         <li>A visible focus ring on everything you can reach with the keyboard.</li>
         <li>Light and dark themes that follow your system setting, both checked for contrast.</li>
-        <li>Animations stop when your device asks for reduced motion, and the scrolling banner has a pause button.</li>
+        <li>Animations stop when your device asks for reduced motion, and the scrolling banner has a pause button. Recorded replays have play, pause, speed and position controls, and wait for Play instead of starting on their own when reduced motion is on.</li>
         <li>Results never rely on color alone: every pass or fail also has a ✓ or ✕ and words.</li>
       </ul>
 

@@ -35,6 +35,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .pricing import cost_usd
+
 ROOT = Path(__file__).resolve().parent.parent
 BENCH = ROOT / "benchmark"
 RESULTS = ROOT / "evals" / "results"
@@ -83,16 +85,11 @@ def match_findings(findings: list[dict], barriers: list[dict]) -> list[str | Non
     return out
 
 
-def run_cost(m: dict) -> float | None:
-    """$ for a run from PRICE_* env vars (per million tokens). Cache reads/writes default to 0.1x / 1.25x input."""
-    pin, pout = os.environ.get("PRICE_INPUT_PER_MTOK"), os.environ.get("PRICE_OUTPUT_PER_MTOK")
-    if not (pin and pout):
-        return None
-    pin, pout = float(pin), float(pout)
-    pread = float(os.environ.get("PRICE_CACHE_READ_PER_MTOK") or pin * 0.1)
-    pwrite = float(os.environ.get("PRICE_CACHE_WRITE_PER_MTOK") or pin * 1.25)
-    return round((m.get("input_tokens", 0) * pin + m.get("cache_read_tokens", 0) * pread
-                  + m.get("cache_write_tokens", 0) * pwrite + m.get("output_tokens", 0) * pout) / 1e6, 3)
+def run_cost(m: dict, model: str | None = None) -> float | None:
+    """$ for a run: built-in prices for known models, or PRICE_* env vars (see pricing.py)."""
+    c = cost_usd(model, m.get("input_tokens", 0), m.get("output_tokens", 0),
+                 m.get("cache_read_tokens", 0), m.get("cache_write_tokens", 0))
+    return None if c is None else round(c, 3)
 
 
 def judge_findings(client, model: str, findings: list[dict], barriers: list[dict]) -> list[str | None]:
@@ -135,7 +132,7 @@ def _ratio(n: int, d: int) -> float | None:
     return round(n / d, 3) if d else None
 
 
-def score(bench: dict, journeys: list[dict], kind: str = "agents") -> dict:
+def score(bench: dict, journeys: list[dict], kind: str = "agents", model: str | None = None) -> dict:
     """journeys: [{task, persona, possible, claimed, verified, findings:[{title,detail,matched}], ...}]"""
     personas = bench["personas"]
     pairs = [(b["id"], p) for b in bench["barriers"] for p in b["personas"]]
@@ -171,7 +168,7 @@ def score(bench: dict, journeys: list[dict], kind: str = "agents") -> dict:
             "output_tokens": sum(j.get("output_tokens", 0) for j in journeys),
             "llm_calls": sum(j.get("llm_calls", 0) for j in journeys),
         })
-        cost = run_cost(metrics)
+        cost = run_cost(metrics, model)
         if cost is not None:
             metrics["cost_usd"] = cost
         for p in personas:
@@ -253,7 +250,7 @@ def run_agents(client, model: str, label: str, task_ids=None, personas=None, con
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "benchmark_version": bench["version"], "wall_seconds": round(time.time() - started, 1),
         "tasks": [t["id"] for t in tasks], "personas": personas,
-        **score(bench, rows, "agents"), "journeys": rows,
+        **score(bench, rows, "agents", model), "journeys": rows,
     }
     if save:
         result["path"] = str(_save(result).relative_to(ROOT))

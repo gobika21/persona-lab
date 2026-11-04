@@ -3,22 +3,29 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, type Demo, type EvalSummary, type Group, type PersonaInfo } from "@/lib/api";
+import { api, type EvalSummary, type Group, type PersonaInfo } from "@/lib/api";
 import Reveal from "@/components/Reveal";
 import SimBar from "@/components/SimBar";
 import Stat from "@/components/Stat";
 import TiltCard from "@/components/TiltCard";
 import { ORDER, PERCEIVES, PersonaIcon, SHORT_NAME } from "@/lib/personas";
+import { compareHref, listReplays, pairsIn, type ReplayInfo } from "@/lib/replay";
 
-const DEMO_NAMES: Record<string, string> = { hotel: "Sunset Hotel", shop: "Kiln & Co. shop", clinic: "Marina Clinic", library: "Al Safa Library" };
-const DEMO_PICKS: Record<string, string> = { "hotel-book": "Book a room", "shop-green-mug": "Buy the green mug", "clinic-book": "Book a doctor" };
+// Real public websites. The two W3C pages are the same site before and after an accessibility fix,
+// so the same task shows the difference: the "before" page hides the phone number in an image.
+const REAL_SITES = [
+  { id: "w3c-before", name: "W3C demo, before fixes", url: "https://www.w3.org/WAI/demos/bad/before/home.html", goal: "Find the phone number for buying concert tickets" },
+  { id: "w3c-after", name: "W3C demo, after fixes", url: "https://www.w3.org/WAI/demos/bad/after/home.html", goal: "Find the phone number for buying concert tickets" },
+  { id: "gov-uk", name: "GOV.UK", url: "https://www.gov.uk/", goal: "Find how much it costs to renew an adult passport online" },
+  { id: "wikipedia", name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Burj_Khalifa", goal: "Find the year the Burj Khalifa opened" },
+];
 const pct = (x: number | null | undefined) => (x == null ? "–" : Math.round(x * 100) + "%");
 
 export default function Home() {
   const router = useRouter();
   const [personas, setPersonas] = useState<PersonaInfo[]>([]);
-  const [demos, setDemos] = useState<Demo[]>([]);
   const [evals, setEvals] = useState<EvalSummary[]>([]);
+  const [replays, setReplays] = useState<ReplayInfo[]>([]);
   const [url, setUrl] = useState("");
   const [goal, setGoal] = useState("");
   const [msg, setMsg] = useState<{ text: string; error?: "url" | "goal" | "server" }>({ text: "" });
@@ -35,15 +42,15 @@ export default function Home() {
     if (m) { router.replace(`/${m[1]}?id=${m[2]}`); return; }
     if (location.hash === "#history") { router.replace("/history"); return; }
     api<PersonaInfo[]>("/api/personas").then(setPersonas).catch(() => {});
-    api<Demo[]>("/api/demos").then(setDemos).catch(() => {});
     api<EvalSummary[]>("/api/evals").then(setEvals).catch(() => {});
+    listReplays().then(setReplays);
   }, [router]);
 
   async function start(e: FormEvent) {
     e.preventDefault();
     if (!url.trim() || !goal.trim()) {
       setMsg(!url.trim() ? { text: "Enter a website address.", error: "url" }
-        : { text: "Describe what a visitor should be able to do, e.g. “Find the contact email”.", error: "goal" });
+        : { text: "Say what a visitor should get done on the site, e.g. “Find the contact email”.", error: "goal" });
       (!url.trim() ? urlRef : goalRef).current?.focus();
       return;
     }
@@ -66,6 +73,14 @@ export default function Home() {
   } else if (base) {
     tiles.push(["Benchmark", "12", "planted barriers across 4 demo sites"], ["Tasks", "5 × 4", "tasks × personas with known outcomes"]);
   }
+
+  const chip = (id: string, name: string, label: string, chipUrl: string, chipGoal: string) => (
+    <button key={picked?.id === id ? `${id}-${picked.n}` : id} type="button"
+      className={`cursor-pointer ${picked?.id === id ? "animate-wiggle" : ""} rounded-full border-2 border-dashed border-edge bg-surface px-3 py-1.5 text-[.82rem] text-ink-2 transition-transform hover:-rotate-1 hover:border-solid hover:bg-yellow hover:text-on-pop [&:hover_b]:text-on-pop`}
+      onClick={() => { setUrl(chipUrl); setGoal(chipGoal); setMsg({ text: "" }); setPicked({ id, n: (picked?.n ?? 0) + 1 }); runRef.current?.focus(); }}>
+      <b className="font-semibold text-ink">{name}</b> · {label}
+    </button>
+  );
 
   return (
     <>
@@ -95,28 +110,42 @@ export default function Home() {
               value={url} onChange={(e) => { setUrl(e.target.value); if (msg.error === "url") setMsg({ text: "" }); }} />
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[.8rem] font-bold text-ink">Task <span className="font-normal text-ink-3">(what a visitor should be able to do)</span></span>
+            <span className="text-[.8rem] font-bold text-ink">What should a visitor get done there?</span>
             <input ref={goalRef} className="input" type="text" placeholder="e.g. Find the contact email" required
-              aria-invalid={msg.error === "goal" || undefined} aria-describedby={msg.error === "goal" ? "form-msg" : undefined}
+              aria-invalid={msg.error === "goal" || undefined} aria-describedby={msg.error === "goal" ? "form-msg goal-hint" : "goal-hint"}
               value={goal} onChange={(e) => { setGoal(e.target.value); if (msg.error === "goal") setMsg({ text: "" }); }} />
           </label>
           <button ref={runRef} className="group btn btn-primary btn-lg w-full min-[761px]:w-auto" type="submit" disabled={busy}>
             {busy ? "Starting…" : "Run test"} <span aria-hidden="true" className={`inline-block transition-transform group-hover:translate-x-1 ${busy ? "animate-wiggle [animation-iteration-count:infinite]" : ""}`}>→</span>
           </button>
+          <p id="goal-hint" className="text-[.8rem] text-ink-3 min-[761px]:col-span-3">
+            <span aria-hidden="true">💡 </span>Barriers show up when someone tries to do something, not just by looking. Each agent attempts this one task with only that person&apos;s senses and controls, and reports where it gets stuck.
+          </p>
         </form>
         <p id="form-msg" role="status" aria-live="polite" className={`mx-auto mt-2.5 min-h-[1.4em] max-w-[760px] text-left text-[.9rem] ${msg.error ? "font-semibold text-bad" : "text-ink-2"}`}>
           {msg.text}
         </p>
-        <div className="mx-auto mt-4.5 flex max-w-[760px] animate-rise flex-wrap items-center justify-center gap-2 [animation-delay:600ms]">
-          <span className="mr-1 text-[.82rem] text-ink-3">No site handy? Try a demo:</span>
-          {demos.filter((d) => d.id in DEMO_PICKS).map((d) => (
-            <button key={picked?.id === d.id ? `${d.id}-${picked.n}` : d.id} type="button"
-              className={`cursor-pointer ${picked?.id === d.id ? "animate-wiggle" : ""} rounded-full border-2 border-dashed border-edge bg-surface px-3 py-1.5 text-[.82rem] text-ink-2 transition-transform hover:-rotate-1 hover:border-solid hover:bg-yellow hover:text-on-pop [&:hover_b]:text-on-pop`}
-              onClick={() => { setUrl(d.path); setGoal(d.goal); setPicked({ id: d.id, n: (picked?.n ?? 0) + 1 }); runRef.current?.focus(); }}>
-              <b className="font-semibold text-ink">{DEMO_NAMES[d.site] || d.site}</b> · {DEMO_PICKS[d.id]}
-            </button>
-          ))}
+        <div className="mx-auto mt-4.5 flex max-w-[860px] animate-rise flex-wrap items-center justify-center gap-2 [animation-delay:600ms]">
+          <span className="mr-1 text-[.82rem] text-ink-3">No site handy? Try one of these:</span>
+          {REAL_SITES.map((r) => chip(r.id, r.name, r.goal, r.url, r.goal))}
         </div>
+        {replays.length > 0 && (
+          <div className="mx-auto mt-3 flex max-w-[760px] animate-rise flex-wrap items-center justify-center gap-2 [animation-delay:700ms]">
+            <span className="mr-1 text-[.82rem] text-ink-3">Or watch a real run, free and no key needed:</span>
+            {pairsIn(replays).map((p) => (
+              <Link key={p.before} href={compareHref(p)}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border-2 border-edge bg-yellow px-3 py-1 text-[.82rem] font-semibold text-on-pop no-underline shadow-[2px_2px_0_var(--edge)] transition-transform hover:-translate-y-px hover:-rotate-1">
+                <span aria-hidden="true">⇄</span> Before vs after a fix
+              </Link>
+            ))}
+            {replays.slice(0, 3).map((r) => (
+              <Link key={r.id} href={`/replay?id=${r.id}`}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border-2 border-edge bg-sky px-3 py-1 text-[.82rem] font-semibold text-on-pop no-underline shadow-[2px_2px_0_var(--edge)] transition-transform hover:-translate-y-px hover:-rotate-1">
+                <span aria-hidden="true">▶</span> {r.goal}
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       <div data-pausable className="group relative mt-8 overflow-hidden border-y-2 border-edge bg-ink py-3 text-bg">

@@ -9,11 +9,12 @@ The owner wants: one focused story, a bold Gen Z neo-brutalist design (thick bla
 (never invent eval numbers: only real runs go in `evals/results/`).
 
 ## Commands
-- Run app: `(cd web && npm run build)` then `PORT=5050 python run.py` → http://localhost:5050 (port 5000 is taken by macOS AirPlay). Pages: / /run /saved /history /evals; demo sites at /bench/<site>/
-- Frontend dev: Flask on 5050 + `cd web && npm run dev` (port 3000, proxies /api and /bench to Flask via `FLASK_URL`)
+- Run app: `(cd web && npm run build)` then `PORT=5050 python run.py` → http://localhost:5050 (port 5000 is taken by macOS AirPlay). Pages: / /run /saved /replay /compare /history /evals /accessibility; demo sites at /bench/<site>/
+- Develop with live reload: `python dev.py` → http://localhost:3000 (Flask on 5050 with its reloader + `next dev`, which proxies /api and /bench to Flask). `run.py` serves the static build, so it needs a rebuild + restart after changes.
 - Frontend checks: `cd web && npx eslint src && npm run build`
 - Tests: `pytest -q` (a scripted fake Claude drives real Chromium; no API key needed)
 - Own accessibility: `pytest -q tests/test_a11y.py` (needs `web/out` built + `web/node_modules`): axe in light/dark at 1280 and 320px, keyboard walk + visible focus, target size, text spacing, reduced motion, pausable motion, form errors. Must stay green; /accessibility describes these checks, so update it if they change.
+- Replays: `python -m personalab.replay save <run-id> --name <name>` copies a finished run (data + step screenshots) from a running server into `web/public/replays/`; `/replay` plays it back with no AI calls. Real runs only.
 - Evals: `python -m personalab.evals baseline` (rules only) · `python -m personalab.evals agents --label v1` (uses ANTHROPIC_API_KEY)
 - Setup: `pip install -r requirements.txt && playwright install chromium`, `cd web && npm install`, copy `.env.example` to `.env`
 
@@ -22,7 +23,10 @@ The owner wants: one focused story, a bold Gen Z neo-brutalist design (thick bla
 - `personalab/journey_helper.js`: injected into pages; focus info, screen-reader linear text view (`srLines`), clickable targets, unreachable-clickable detection.
 - `personalab/evals.py`: benchmark runner, scoring (barrier recall/precision, outcome accuracy, verified success, false success, cost), keyword matcher + optional LLM judge, rules baseline, CLI.
 - `benchmark/sites/*` + `benchmark/ground_truth.json`: 4 sites (hotel, shop, clinic, accessible library control), 12 planted barriers, 5 tasks with per-persona `possible` and objective `success` checks.
-- `personalab/server.py`: Flask API (`/api/run`, `/api/journey/<id>`, `/api/evals`, `/api/demos`); `guard.py`: PUBLIC_MODE SSRF guard + per-IP limits; `export.py`: HTML reports.
+- `personalab/replay.py` + `web/src/lib/replay.ts`: recorded demo runs; `timeline()`/`snapshot()` rebuild the live run view at any moment, keeping each agent's real relative pace. `PAIRS` (before/after replays of one task) feed `/compare`.
+- `personalab/pricing.py`: $ per run from token counts (Opus 5.5 prices built in, `PRICE_*` env overrides; unknown model → no number). Runs, replays and evals report it.
+- Errors: `journey.explain_error` turns Claude API failures (no credits, bad key, rate limit, overload) into plain sentences; when every agent errored, RunView says the test couldn't run instead of showing a score.
+- `personalab/server.py`: Flask API (`/api/run`, `/api/journey/<id>`, `/api/evals`, `/api/demos`); `guard.py`: PUBLIC_MODE SSRF guard + per-IP and site-wide daily limits; `export.py`: HTML reports.
 - `web/`: Next.js 16 (App Router) + TypeScript + Tailwind v4, **static export** (`output: "export"` → `web/out`) served by Flask's catch-all route, so the app stays one container on one origin. Next 16 differs from older versions: read `web/node_modules/next/dist/docs/` before using a Next API (see `web/AGENTS.md`). Color tokens live in `src/app/globals.css` (CSS variables, light + dark) and are exposed as Tailwind colors (`bg-surface`, `text-ink-2`, `border-edge`, `bg-lime`, …); text on a pop color uses `text-on-pop` so it stays dark in dark mode. Pages are thin server files exporting `metadata` + a `*Client.tsx` client component. History lives in IndexedDB (`src/lib/history.ts`); `GET /api/run/<id>/export.json` is the record format it stores and imports.
 
 ## Conventions

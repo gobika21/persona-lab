@@ -134,13 +134,15 @@ def create_app(agent_client=None, web_dir: Path | None = None) -> Flask:
         chosen = [p for p in (body.get("personas") or list(PERSONAS)) if p in PERSONAS] or list(PERSONAS)
         client = ai_client()
         if client is None:
-            return bad("The agents need a Claude API key. Add your own in Settings (it stays in your browser)"
+            return bad("The agents need a Claude API key. Add your own with the API key button at the top (it stays in your browser)"
                        + ("." if public_mode() else ", or set ANTHROPIC_API_KEY in .env."), 503)
         try:
             for p in chosen:  # validate before spending the allowance
                 journeys._make(url, body.get("goal", ""), p, {})
             if not own_key() and not limiter.take(visitor(), "journey", len(chosen)):
-                return bad("You've used today's free runs on this demo. Add your own Claude API key in Settings to keep going.", 429)
+                if limiter.site_remaining("journey") < len(chosen):
+                    return bad("Today's free runs for everyone are used up. Watch a recorded run, or add your own Claude API key (top right).", 429)
+                return bad("You've used today's free runs on this demo. Add your own Claude API key (top right) to keep going.", 429)
             g = journeys.start_group(url, body.get("goal", ""), {"cvd_type": "deutan"}, client=client,
                                      run_async=not app.config.get("SYNC"), personas=chosen)
         except ValueError as exc:

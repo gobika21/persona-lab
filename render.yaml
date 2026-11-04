@@ -12,3 +12,5 @@ services:
         value: "1"
       - key: TRUST_PROXY
         value: "1"
+      - key: LIMIT_SITE_JOURNEY
+        value: "40"        # agent runs per day on your key, all visitors together (4 per test)

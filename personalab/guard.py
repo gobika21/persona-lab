@@ -97,11 +97,18 @@ def install_route_guard(context) -> None:
 # rate limits
 
 
-DEFAULT_LIMITS = {"journey": 12}  # one run = 4 journeys (one per persona)
+DEFAULT_LIMITS = {"journey": 12}  # per visitor per day; one run = 4 journeys (one per persona)
+# Across all visitors per day, so a shared link can't run up the server key's bill. Own-key runs don't count.
+DEFAULT_SITE_LIMITS = {"journey": 40}
+SITE = "*site*"
 
 
 def limits() -> dict:
     return {k: int(os.environ.get(f"LIMIT_{k.upper()}", v)) for k, v in DEFAULT_LIMITS.items()}
+
+
+def site_limits() -> dict:
+    return {k: int(os.environ.get(f"LIMIT_SITE_{k.upper()}", v)) for k, v in DEFAULT_SITE_LIMITS.items()}
 
 
 class RateLimiter:
@@ -116,19 +123,27 @@ class RateLimiter:
         return int(time.time() // 86400)
 
     def remaining(self, visitor: str, kind: str) -> int:
+        """What this visitor can still use today: their own allowance, capped by what's left site-wide."""
         with self._lock:
-            return max(0, limits()[kind] - self._counts.get((visitor, kind, self._day()), 0))
+            day = self._day()
+            mine = limits()[kind] - self._counts.get((visitor, kind, day), 0)
+            return max(0, min(mine, site_limits()[kind] - self._counts.get((SITE, kind, day), 0)))
+
+    def site_remaining(self, kind: str) -> int:
+        with self._lock:
+            return max(0, site_limits()[kind] - self._counts.get((SITE, kind, self._day()), 0))
 
     def take(self, visitor: str, kind: str, n: int = 1) -> bool:
         if not public_mode():
             return True
         day = self._day()
         with self._lock:
-            key = (visitor, kind, day)
-            used = self._counts.get(key, 0)
-            if used + n > limits()[kind]:
+            key, site = (visitor, kind, day), (SITE, kind, day)
+            used, site_used = self._counts.get(key, 0), self._counts.get(site, 0)
+            if used + n > limits()[kind] or site_used + n > site_limits()[kind]:
                 return False
             self._counts[key] = used + n
+            self._counts[site] = site_used + n
             if len(self._counts) > 50_000:  # drop old days
                 self._counts = {k: v for k, v in self._counts.items() if k[2] == day}
             return True

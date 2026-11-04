@@ -30,34 +30,53 @@ interface Props {
   shots?: Record<string, string>;
   note?: ReactNode;
   onStop?: () => void;
+  /** Set when playing back a recorded demo (see lib/replay.ts): screenshots and steps come from static files. */
+  replay?: Replay;
+  /** Shown under the title, e.g. the replay controls. */
+  toolbar?: ReactNode;
 }
 
-export default function RunView({ group: g, saved, shots = {}, note, onStop }: Props) {
+export interface Replay { shot: (jid: string, n: number) => string; steps: (jid: string) => Step[] }
+
+export default function RunView({ group: g, saved, shots = {}, note, onStop, replay, toolbar }: Props) {
   const [drawer, setDrawer] = useState<Member | null>(null);
   const [error, setError] = useState("");
   const done = g.members.filter(isDone).length;
   const stuck = g.members.filter((m) => !m.success).map((m) => shortLabel(m.persona_label).toLowerCase());
   const members = ORDER.map((p) => g.members.find((m) => m.persona === p)).filter((m): m is Member => !!m);
+  // If no agent could run at all (no credits, bad key, site down), there is no result: "0 of 4" would blame the site.
+  const failed = g.finished && g.members.length > 0 && g.members.every((m) => m.status === "error");
+  const reasons = [...new Set(g.members.map((m) => m.error).filter(Boolean))];
 
   return (
     <div className="wrap pb-16">
       <div className="flex flex-wrap items-start justify-between gap-4 pt-7 pb-2">
         <div className="min-w-0">
-          <Link href={saved ? "/history" : "/"} className="no-print inline-flex min-h-7 items-center gap-1.5 text-sm text-ink-2 no-underline hover:text-ink">
-            <span aria-hidden="true">←</span> {saved ? "All saved tests" : "New test"}
+          <Link href={saved ? "/history" : replay ? "/replay" : "/"} className="no-print inline-flex min-h-7 items-center gap-1.5 text-sm text-ink-2 no-underline hover:text-ink">
+            <span aria-hidden="true">←</span> {saved ? "All saved tests" : replay ? "All replays" : "New test"}
           </Link>
           <h1 className="mt-2.5 text-[1.05rem] font-semibold tracking-normal">{g.goal}</h1>
           <p className="text-sm break-all text-ink-3">{g.url}</p>
         </div>
         <div className="flex items-center gap-2">
           {!g.finished && onStop && <button type="button" className="btn btn-sm no-print" onClick={onStop}>Stop</button>}
-          {g.finished && <DownloadMenu runId={g.id} onError={setError} printHere={!!saved} />}
+          {g.finished && !failed && !replay && <DownloadMenu runId={g.id} onError={setError} printHere={!!saved} />}
         </div>
       </div>
+      {toolbar}
       <p role="status" aria-live="polite" className="no-print mt-1 min-h-[1.4em] text-sm text-ink-2">{error || note}</p>
 
       <div aria-live="polite" className="my-5 grid gap-2.5">
-        {g.finished ? (
+        {failed ? (
+          <div role="alert" className="card grid gap-2 border-bad bg-surface p-5">
+            <span className="font-display text-[clamp(1.6rem,4vw,2.4rem)] leading-tight font-extrabold tracking-[-0.03em]">
+              <span aria-hidden="true">⚠ </span>The test couldn&apos;t run
+            </span>
+            <p className="font-medium">No agent got far enough to try the task, so this says nothing about the site.</p>
+            {reasons.length === 1 && <p className="text-ink-2">{reasons[0]}</p>}
+            {!replay && !saved && <Link href="/" className="btn btn-sm justify-self-start">Try again</Link>}
+          </div>
+        ) : g.finished ? (
           <>
             <span className={`origin-left animate-pop font-display text-[clamp(3rem,9vw,5.5rem)] leading-[.95] font-extrabold tracking-[-0.05em] tabular-nums ${g.completed === g.total ? "text-ok" : "text-bad"}`}>
               {g.completed} of {g.total}
@@ -66,6 +85,7 @@ export default function RunView({ group: g, saved, shots = {}, note, onStop }: P
               people could {goalPhrase(g)}.{" "}
               {g.completed < g.total && <span className="font-medium text-ink-2">Stuck: {stuck.join(", ")}.</span>}
             </span>
+            <RunCost g={g} />
           </>
         ) : (
           <span className="max-w-[46ch] text-[clamp(1.15rem,2.6vw,1.6rem)] leading-tight font-semibold tracking-[-0.02em]">
@@ -81,14 +101,27 @@ export default function RunView({ group: g, saved, shots = {}, note, onStop }: P
 
       <section aria-labelledby="agents-h" className="mt-6 grid gap-4 min-[861px]:grid-cols-2 print:grid-cols-2">
         <h2 id="agents-h" className="sr-only">How each person did</h2>
-        {g.finished && !saved && g.completed === g.total && <Confetti />}
-        {members.map((m, i) => <AgentCard key={m.id} i={i} m={m} saved={!!saved} shot={saved ? shots[m.id] : m.shot ? `/api/journey/${m.id}/shot/${m.shot}.jpg` : undefined} onSteps={() => setDrawer(m)} />)}
+        {g.finished && !saved && !replay && g.completed === g.total && <Confetti />}
+        {members.map((m, i) => <AgentCard key={m.id} i={i} m={m} saved={!!saved} shot={saved ? shots[m.id] : !m.shot ? undefined : replay ? replay.shot(m.id, m.shot) : `/api/journey/${m.id}/shot/${m.shot}.jpg`} onSteps={() => setDrawer(m)} />)}
       </section>
 
-      {g.finished && <Barriers g={g} />}
+      {g.finished && !failed && <Barriers g={g} />}
 
-      <StepsDrawer member={drawer} saved={saved} onClose={() => setDrawer(null)} />
+      <StepsDrawer member={drawer} saved={saved} replay={replay} onClose={() => setDrawer(null)} />
     </div>
+  );
+}
+
+/** What the test cost to run: real token counts, priced at the model's API rates on the server. */
+function RunCost({ g }: { g: Group }) {
+  const tokens = g.members.reduce((n, m) => n + (m.tokens || 0), 0);
+  if (!tokens) return null;
+  const usd = g.cost_usd;
+  return (
+    <span className="text-sm text-ink-3 tabular-nums">
+      {usd != null && <><b className="font-semibold text-ink-2">{usd < 0.01 ? "under $0.01" : `$${usd.toFixed(2)}`}</b> to run · </>}
+      {Math.round(tokens / 1000).toLocaleString()}k tokens across {g.total} agents
+    </span>
   );
 }
 
@@ -226,7 +259,7 @@ function Barriers({ g }: { g: Group }) {
   );
 }
 
-function StepsDrawer({ member, saved, onClose }: { member: Member | null; saved?: HistoryEntry | null; onClose: () => void }) {
+function StepsDrawer({ member, saved, replay, onClose }: { member: Member | null; saved?: HistoryEntry | null; replay?: Replay; onClose: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [live, setLive] = useState<{ id: string; steps: Step[] }>({ id: "", steps: [] });
 
@@ -238,7 +271,7 @@ function StepsDrawer({ member, saved, onClose }: { member: Member | null; saved?
 
   // Live runs: fetch new steps while the drawer is open and the agent is still working.
   useEffect(() => {
-    if (!member || saved) return;
+    if (!member || saved || replay) return;
     let seen = 0, stop = false, timer: ReturnType<typeof setTimeout>;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset when a different agent is opened
     setLive({ id: member.id, steps: [] });
@@ -254,10 +287,10 @@ function StepsDrawer({ member, saved, onClose }: { member: Member | null; saved?
     };
     tick();
     return () => { stop = true; clearTimeout(timer); };
-  }, [member, saved]);
+  }, [member, saved, replay]);
 
   const journey = member && saved ? saved.record.journeys.find((j) => j.id === member.id) : undefined;
-  const steps = saved ? journey?.steps || [] : live.id === member?.id ? live.steps : [];
+  const steps = replay && member ? replay.steps(member.id) : saved ? journey?.steps || [] : live.id === member?.id ? live.steps : [];
   const sr = member?.persona === "screen_reader";
 
   return (
@@ -266,7 +299,7 @@ function StepsDrawer({ member, saved, onClose }: { member: Member | null; saved?
       <div className="sticky top-0 z-1 flex items-center justify-between gap-3 border-b border-line bg-surface px-5 py-4">
         <h2 id="drawer-h" className="text-[1.05rem] font-semibold">{member?.persona_label || "Steps"}</h2>
         <div className="flex gap-2">
-          {member && !saved && <a className="btn btn-sm" href={`/api/journey/${member.id}/report.html`} download>Report</a>}
+          {member && !saved && !replay && <a className="btn btn-sm" href={`/api/journey/${member.id}/report.html`} download>Report</a>}
           <form method="dialog"><button className="btn btn-sm">Close</button></form>
         </div>
       </div>
@@ -276,14 +309,14 @@ function StepsDrawer({ member, saved, onClose }: { member: Member | null; saved?
           {saved && !sr && " Screenshots of every step are in the HTML report."}
         </p>
         <ol className="m-0 list-none p-0">
-          {steps.map((st) => <StepItem key={st.n + st.tool} st={st} jid={member!.id} sr={sr} shots={!saved} />)}
+          {steps.map((st) => <StepItem key={st.n + st.tool} st={st} sr={sr} shot={saved ? undefined : replay ? (n) => replay.shot(member!.id, n) : (n) => `/api/journey/${member!.id}/shot/${n}.jpg`} />)}
         </ol>
       </div>
     </dialog>
   );
 }
 
-function StepItem({ st, jid, sr, shots }: { st: Step; jid: string; sr: boolean; shots: boolean }) {
+function StepItem({ st, sr, shot }: { st: Step; sr: boolean; shot?: (n: number) => string }) {
   const inp = st.input || {};
   const detail = inp.key ? `${inp.key}${(inp.times ?? 0) > 1 ? " ×" + inp.times : ""}` : inp.text || inp.query || "";
   const barrier = st.tool === "report_barrier";
@@ -300,9 +333,9 @@ function StepItem({ st, jid, sr, shots }: { st: Step; jid: string; sr: boolean; 
         {sr && st.heard && (
           <pre className="mt-2.5 max-h-60 overflow-auto rounded-[10px] bg-term-bg px-3 py-2.5 text-[.75rem] whitespace-pre-wrap text-term-ink">{stripRefs(st.heard)}</pre>
         )}
-        {!sr && shots && st.has_shot && (
-          // eslint-disable-next-line @next/next/no-img-element -- screenshot served by the API
-          <img src={`/api/journey/${jid}/shot/${st.n}.jpg`} alt={`Screen at step ${st.n}`} loading="lazy" className="mt-2.5 block w-full rounded-[10px] border border-line" />
+        {!sr && shot && st.has_shot && (
+          // eslint-disable-next-line @next/next/no-img-element -- screenshot served by the API or a replay file
+          <img src={shot(st.n)} alt={`Screen at step ${st.n}`} loading="lazy" className="mt-2.5 block w-full rounded-[10px] border border-line" />
         )}
       </div>
     </li>

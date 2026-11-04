@@ -3,6 +3,7 @@ import pytest
 
 from personalab import guard
 from personalab.evals import serve_sites
+from personalab.journey import explain_error
 from personalab.server import create_app
 from tests.helpers import HAVE_BROWSER, Scripted, tool
 
@@ -67,6 +68,7 @@ def test_run_end_to_end_and_report():
         g = c.post("/api/run", json={"url": f"{base}/hotel/index.html", "goal": "Find the phone number"}).json
     assert g["finished"] and g["total"] == 4 and g["completed"] == 3
     assert all(m["barrier_list"] for m in g["members"]) and all(m["tokens"] > 0 for m in g["members"])
+    assert g["cost_usd"] == round(sum(m["cost_usd"] for m in g["members"]), 4) and g["cost_usd"] > 0
     worked = {m["persona"]: m["worked"] for m in g["members"]}
     assert worked["keyboard"] == ["Headings were clear", "Phone number in the footer"] and worked["screen_reader"] == []
     rep = c.get(f"/api/run/{g['id']}/report.html")
@@ -85,6 +87,32 @@ def test_run_end_to_end_and_report():
     assert {j["id"] for j in rec["journeys"]} == set(g["journeys"]) and all(j["steps"] for j in rec["journeys"])
     assert "shots" not in str(rec.keys()) and "base64" not in ex.get_data(as_text=True)
     assert c.get("/api/run/nope/export.json").status_code == 404
+
+
+class FakeAPIError(Exception):
+    def __init__(self, status_code, message):
+        super().__init__(f"Error code: {status_code} - {{'type': 'error', 'error': {{'message': '{message}'}}}}")
+        self.status_code = status_code
+
+
+def test_account_errors_are_explained():
+    """A key with no credits (or a bad key) is about the account, not the site: say so in plain words."""
+    def broke(persona, n, seen, kw):
+        raise FakeAPIError(400, "Your credit balance is too low to access the Anthropic API.")
+    app = create_app(agent_client=Scripted(broke))
+    app.config["SYNC"] = True
+    with serve_sites() as base:
+        g = app.test_client().post("/api/run", json={"url": f"{base}/hotel/index.html", "goal": "Find the phone number"}).json
+    assert g["finished"] and g["completed"] == 0
+    assert {m["status"] for m in g["members"]} == {"error"}
+    assert {m["error"] for m in g["members"]} == {explain_error(FakeAPIError(400, "Your credit balance is too low"))}
+    assert "no credits" in g["members"][0]["error"] and "Error code" not in g["members"][0]["error"]
+
+    assert "rejected the API key" in explain_error(FakeAPIError(401, "invalid x-api-key"))
+    assert "rate limit" in explain_error(FakeAPIError(429, "rate_limit_error"))
+    assert "busy" in explain_error(FakeAPIError(529, "Overloaded"))
+    assert explain_error(ValueError("Couldn't open https://x.test: net::ERR_NAME_NOT_RESOLVED\nmore")) == \
+        "Couldn't open https://x.test: net::ERR_NAME_NOT_RESOLVED"
 
 
 def test_public_mode_guard_and_limits(monkeypatch):
@@ -110,3 +138,18 @@ def test_public_mode_guard_and_limits(monkeypatch):
     r = c.post("/api/run", json={"url": "https://8.8.8.8", "goal": "g"})
     assert r.status_code == 429 and "own Claude API key" in r.json["error"]
     assert len(started) == 1
+
+    # The site-wide cap stops everyone once it's spent, whatever their own allowance; own keys aren't counted.
+    monkeypatch.setenv("LIMIT_JOURNEY", "12")
+    monkeypatch.setenv("LIMIT_SITE_JOURNEY", "8")
+    app = create_app(agent_client=Scripted(finisher))
+    app.config["JOURNEYS"].start_group = lambda *a, **k: {"id": "x", "members": []}
+    c = app.test_client()
+    for ip in ("1.1.1.1", "2.2.2.2"):
+        assert c.post("/api/run", json={"url": "https://8.8.8.8", "goal": "g"}, environ_base={"REMOTE_ADDR": ip}).status_code == 200
+    r = c.post("/api/run", json={"url": "https://8.8.8.8", "goal": "g"}, environ_base={"REMOTE_ADDR": "3.3.3.3"})
+    assert r.status_code == 429 and "for everyone" in r.json["error"]
+    assert c.get("/api/health", environ_base={"REMOTE_ADDR": "3.3.3.3"}).json["remaining"]["journey"] == 0
+    r = c.post("/api/run", json={"url": "https://8.8.8.8", "goal": "g"}, environ_base={"REMOTE_ADDR": "3.3.3.3"},
+               headers={"X-Anthropic-Key": "sk-ant-" + "x" * 40})
+    assert r.status_code == 200

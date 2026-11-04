@@ -92,3 +92,15 @@ def test_rules_baseline_finds_only_page_level_barriers(monkeypatch):
     # experience-level barriers are invisible to page rules
     assert not found & {"hotel-book-div", "shop-color-only-variants", "clinic-datepicker-mouse-only"}
     assert r["metrics"]["precision"] == 1.0
+
+
+def test_cost_uses_known_prices_or_env(monkeypatch):
+    from personalab.pricing import cost_usd
+    for k in ("PRICE_INPUT_PER_MTOK", "PRICE_OUTPUT_PER_MTOK", "PRICE_CACHE_READ_PER_MTOK", "PRICE_CACHE_WRITE_PER_MTOK"):
+        monkeypatch.delenv(k, raising=False)
+    # Opus 5.5: $4 in, $20 out, $0.20 cache read, $5 cache write per million tokens
+    assert cost_usd("claude-opus-5-5", 1_000_000, 100_000, 1_000_000, 100_000) == 4 + 2 + 0.2 + 0.5
+    assert cost_usd("some-unknown-model", 1000, 1000) is None
+    monkeypatch.setenv("PRICE_INPUT_PER_MTOK", "1")
+    monkeypatch.setenv("PRICE_OUTPUT_PER_MTOK", "2")
+    assert cost_usd("some-unknown-model", 1_000_000, 1_000_000, 1_000_000) == 1 + 2 + 0.1

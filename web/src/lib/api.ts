@@ -31,6 +31,8 @@ export interface Member {
   shot: number | null;
   barrier_list: Barrier[];
   tokens?: number;
+  /** Dollars for this agent's API calls (null when the model's price isn't known). */
+  cost_usd?: number | null;
 }
 
 export interface Group {
@@ -42,6 +44,7 @@ export interface Group {
   finished: boolean;
   completed: number;
   total: number;
+  cost_usd?: number | null;
 }
 
 export interface Step {
@@ -62,6 +65,7 @@ export interface Journey {
   status: string;
   steps: Step[];
   step_count: number;
+  elapsed_s?: number;
 }
 
 export interface RunRecord {
@@ -97,6 +101,9 @@ export const keyStore = {
   get(): string {
     try { return localStorage.getItem(KEY) ?? sessionStorage.getItem(KEY) ?? ""; } catch { return ""; }
   },
+  remembered(): boolean {
+    try { return !!localStorage.getItem(KEY); } catch { return false; }
+  },
   set(value: string, remember: boolean) {
     try { this.clear(); (remember ? localStorage : sessionStorage).setItem(KEY, value); } catch {}
   },
@@ -110,7 +117,9 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   if (opts.body) headers["Content-Type"] = "application/json";
   const key = keyStore.get();
   if (key) headers["X-Anthropic-Key"] = key;
-  const res = await fetch(path, { method: opts.method, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  // A network error (server stopped, connection dropped) only says "Failed to fetch"; say what it means instead.
+  const res = await fetch(path, { method: opts.method, headers, body: opts.body ? JSON.stringify(opts.body) : undefined })
+    .catch(() => { throw new Error("Can't reach the Persona Lab server. Check that it's running, then try again."); });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`);
   return data as T;

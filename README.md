@@ -45,12 +45,12 @@ cp .env.example .env                                   # add ANTHROPIC_API_KEY
 PORT=5050 python run.py                                # http://localhost:5050
 ```
 
-Try one of the built-in demo sites on the home page, or any public website. (On macOS, port 5000 is usually taken by AirPlay Receiver, hence `PORT=5050`.)
+Try one of the suggested real websites on the home page, or any public website. (On macOS, port 5000 is usually taken by AirPlay Receiver, hence `PORT=5050`.)
 
-Working on the frontend? Keep Flask running and start the Next.js dev server, which proxies `/api` and `/bench` to it:
+`python run.py` serves the production build, so code changes need a rebuild and a restart. While developing, use live reload instead:
 
 ```bash
-cd web && npm run dev                                  # http://localhost:3000 (FLASK_URL defaults to http://127.0.0.1:5050)
+python dev.py                                          # http://localhost:3000: Flask on 5050 (reloads on Python changes) + next dev
 ```
 
 ### Evaluate
@@ -74,13 +74,28 @@ The tests use a scripted fake Claude client to drive **real Chromium** through t
 
 ## Deploy (public demo, no login)
 
+**On Render:** push to GitHub, then in Render choose New > Blueprint and pick the repo; `render.yaml` sets everything up.
+Set `ANTHROPIC_API_KEY` in the Render dashboard if you want visitors to get free runs on your key (capped per day, below);
+leave it unset and visitors use their own key. The `starter` plan is needed: headless Chromium wants about 1 GB RAM.
+
+Or with Docker anywhere:
+
 ```bash
 docker build -t persona-lab . && docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... persona-lab
 ```
 
 The Dockerfile builds the Next.js frontend in a Node stage and copies the static export into the Python image, so it's still one container serving one origin.
 
-`PUBLIC_MODE=1` (set in the Dockerfile) blocks private/internal addresses for the typed URL and for every request the page makes (SSRF protection), and gives each visitor a small free daily allowance. Visitors can paste their own Anthropic key in Settings; it stays in their browser. `render.yaml` deploys to Render as a Blueprint. Chromium needs about 1 GB RAM. State is in memory, so run one worker (the Dockerfile does).
+`PUBLIC_MODE=1` (set in the Dockerfile) blocks private/internal addresses for the typed URL and for every request the page makes (SSRF protection), and gives each visitor a small free daily allowance (`LIMIT_JOURNEY`, default 12 agent runs = 3 tests), with a site-wide daily cap on your key (`LIMIT_SITE_JOURNEY`, default 40 = 10 tests) so a shared link can't run up your bill. Visitors can paste their own Anthropic key with the API key button; it stays in their browser. `render.yaml` deploys to Render as a Blueprint. Chromium needs about 1 GB RAM. State is in memory, so run one worker (the Dockerfile does).
+
+**Demo replays.** Visitors without a key can watch a real recorded run at `/replay`. To record one: do a run in the app, then
+`python -m personalab.replay save <run-id> --name hotel-book` (the id is in the run page's address) and rebuild the frontend.
+It writes `web/public/replays/` (the run data plus small screenshots, which ship with the image). Only record real runs.
+Record the same task on two versions of a site as `w3c-before` and `w3c-after` and `/compare` shows them side by side:
+who could do it before and after, and which barriers the fix removed (pairs are listed in `web/src/lib/replay.ts`).
+
+**Cost.** Every run reports what it cost, from the real token counts at the model's API prices (`personalab/pricing.py`;
+`PRICE_*` env vars override them). For example, the recorded Wikipedia test (four agents, 14 steps) cost $0.14 on Claude Opus 5.5.
 
 ## Layout
 
@@ -92,6 +107,8 @@ personalab/
   colorlab.py         color-vision simulation used by the visual personas
   sitecheck.py        page rules (axe-core / built-in) used by the baseline
   guard.py            SSRF guard, rate limits, concurrency caps
+  pricing.py          $ cost of a run from its token counts
+  replay.py           records finished runs as static demo replays
   export.py           single-file HTML reports
   server.py           Flask app + JSON API; serves the built frontend
 benchmark/
@@ -100,7 +117,7 @@ benchmark/
 evals/results/        one JSON per evaluation run
 web/                  Next.js 16 + TypeScript + Tailwind CSS v4, built as a static export (web/out)
   src/app/            pages: / (test a site), /run, /saved, /history, /evals
-  src/components/     Nav (+ Settings), RunView (agents, barriers, steps drawer), DownloadMenu
+  src/components/     Nav (+ API key dialog), RunView (agents, barriers, steps drawer), DownloadMenu
   src/lib/            typed API client, History (IndexedDB) + downloads, barrier merging, personas
 ```
 
