@@ -112,7 +112,29 @@ export const keyStore = {
   },
 };
 
+/** Built with NEXT_PUBLIC_SHOWCASE=1: a static site with no server. Replays, before/after and evals work from
+ *  files (web/public/data, from `python -m personalab.showcase`); live tests need the full app. */
+export const SHOWCASE = process.env.NEXT_PUBLIC_SHOWCASE === "1";
+export const REPO_URL = "https://github.com/gobika21/persona-lab";
+export const LIVE_ONLY = "Live tests need the full Persona Lab server, which this showcase doesn't have. Watch a recorded run, or run Persona Lab yourself from GitHub.";
+
+const STATIC: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^\/api\/personas$/, () => "/data/personas.json"],
+  [/^\/api\/evals$/, () => "/data/evals.json"],
+  [/^\/api\/evals\/([\w.-]+)$/, (m) => `/data/evals/${m[1]}.json`],
+];
+
+async function showcaseApi<T>(path: string, method?: string): Promise<T> {
+  if (path === "/api/health") return { ok: true, public_mode: true, model: "", ai_ready: false, remaining: null } as T;
+  const hit = !method || method === "GET" ? STATIC.map(([re, to]) => { const m = path.match(re); return m && to(m); }).find(Boolean) : null;
+  if (!hit) throw new Error(LIVE_ONLY);
+  const res = await fetch(hit);
+  if (!res.ok) throw new Error("Not found.");
+  return res.json();
+}
+
 export async function api<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+  if (SHOWCASE) return showcaseApi<T>(path, opts.method);
   const headers: Record<string, string> = {};
   if (opts.body) headers["Content-Type"] = "application/json";
   const key = keyStore.get();

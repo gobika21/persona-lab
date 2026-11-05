@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, type EvalSummary, type Group, type PersonaInfo } from "@/lib/api";
+import { api, REPO_URL, SHOWCASE, type EvalSummary, type Group, type PersonaInfo } from "@/lib/api";
 import Reveal from "@/components/Reveal";
 import SimBar from "@/components/SimBar";
 import Stat from "@/components/Stat";
@@ -101,6 +101,21 @@ export default function Home() {
           <strong className="text-ink">200% zoom</strong>. You see exactly where each one gets stuck.
         </p>
 
+        {SHOWCASE ? (
+          <div className="mx-auto mt-9 grid max-w-[760px] animate-rise gap-3 [animation-delay:480ms] rounded-[20px] border-2 border-edge bg-surface p-5 text-left shadow-pop">
+            <h2 className="text-[1.25rem] font-bold">Watch the agents on real websites</h2>
+            <p className="text-ink-2">
+              This is the showcase: real test runs, recorded step by step and played back here, so nothing calls the AI and it&apos;s
+              free to watch. To test your own site, run Persona Lab yourself with your own Claude API key.
+            </p>
+            <p className="flex flex-wrap gap-2">
+              <Link href={replays[0] ? `/replay?id=${replays[0].id}` : "/replay"} className="btn btn-primary">
+                <span aria-hidden="true">▶</span> Watch a real run
+              </Link>
+              <a href={REPO_URL} className="btn">Run it yourself<span className="sr-only"> (GitHub)</span> <span aria-hidden="true">→</span></a>
+            </p>
+          </div>
+        ) : (<>
         <form onSubmit={start} noValidate
           className="mx-auto mt-9 grid max-w-[760px] animate-rise items-end [animation-delay:480ms] gap-2.5 rounded-[20px] border-2 border-edge bg-surface p-3.5 text-left shadow-pop min-[761px]:grid-cols-[1fr_1fr_auto]">
           <label className="grid gap-1.5">
@@ -129,9 +144,10 @@ export default function Home() {
           <span className="mr-1 text-[.82rem] text-ink-3">No site handy? Try one of these:</span>
           {REAL_SITES.map((r) => chip(r.id, r.name, r.goal, r.url, r.goal))}
         </div>
+        </>)}
         {replays.length > 0 && (
           <div className="mx-auto mt-3 flex max-w-[760px] animate-rise flex-wrap items-center justify-center gap-2 [animation-delay:700ms]">
-            <span className="mr-1 text-[.82rem] text-ink-3">Or watch a real run, free and no key needed:</span>
+            <span className="mr-1 text-[.82rem] text-ink-3">{SHOWCASE ? "Recorded runs:" : "Or watch a real run, free and no key needed:"}</span>
             {pairsIn(replays).map((p) => (
               <Link key={p.before} href={compareHref(p)}
                 className="inline-flex min-h-8 items-center gap-1.5 rounded-full border-2 border-edge bg-yellow px-3 py-1 text-[.82rem] font-semibold text-on-pop no-underline shadow-[2px_2px_0_var(--edge)] transition-transform hover:-translate-y-px hover:-rotate-1">

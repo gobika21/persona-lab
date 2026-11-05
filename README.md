@@ -74,15 +74,20 @@ The tests use a scripted fake Claude client to drive **real Chromium** through t
 
 ## Deploy (public demo, no login)
 
-**Free, on Hugging Face Spaces:** log in once with `hf auth login` (a token with write access), then
+**Free showcase (static, no server):** recorded replays, before/after and evals, with no AI calls, so it costs nothing
+to host or to visit. On Vercel: New Project > import the repo > set Root Directory to `web` > Deploy (`web/vercel.json`
+runs `npm run build:showcase`). Any static host works: `cd web && npm run build:showcase` writes `web/out`. The data comes
+from `python -m personalab.showcase` (`web/public/data`, kept in sync by `tests/test_showcase.py`); re-run it after new
+eval results, and record replays as below. Live tests need the full app (one of the options below).
+
+**Hugging Face Spaces (Docker Spaces need a PRO subscription):** log in once with `hf auth login` (a token with write access), then
 
 ```bash
 scripts/deploy-hf.sh <hf-username>/persona-lab
 ```
 
 It creates a Docker Space if needed and uploads exactly what is committed (never `.env`), with the Space settings added
-to the uploaded README. The free CPU tier has enough memory for the four browsers; a Space sleeps after a while without
-visitors and takes a minute to wake. Add `ANTHROPIC_API_KEY` as a Space secret only if visitors should run on your key.
+to the uploaded README. A Space sleeps after a while without visitors and takes a minute to wake. Add `ANTHROPIC_API_KEY` as a Space secret only if visitors should run on your key.
 
 **On Render (paid Starter plan):** push to GitHub, then in Render choose New > Blueprint and pick the repo; `render.yaml` sets everything up.
 Set `ANTHROPIC_API_KEY` in the Render dashboard if you want visitors to get free runs on your key (capped per day, below);
@@ -119,6 +124,7 @@ personalab/
   guard.py            SSRF guard, rate limits, concurrency caps
   pricing.py          $ cost of a run from its token counts
   replay.py           records finished runs as static demo replays
+  showcase.py         exports read-only API data for the static showcase build
   export.py           single-file HTML reports
   server.py           Flask app + JSON API; serves the built frontend
 benchmark/

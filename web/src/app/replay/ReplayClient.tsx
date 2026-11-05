@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Missing from "@/components/Missing";
 import RunView, { type Replay } from "@/components/RunView";
-import type { RunRecord } from "@/lib/api";
+import { REPO_URL, SHOWCASE, type RunRecord } from "@/lib/api";
 import { reducedMotion } from "@/hooks/motion";
 import { compareHref, listReplays, loadReplay, pairsIn, replayBase, snapshot, timeline, type ReplayInfo } from "@/lib/replay";
 
@@ -148,7 +148,9 @@ function Player({ id }: { id: string }) {
         <div className="wrap -mt-6 pb-16">
           <div className="card flex flex-wrap items-center justify-between gap-3 bg-yellow p-5 text-on-pop">
             <p className="font-display text-[1.2rem] font-bold">Want to see how your own site does?</p>
-            <Link href="/" className="btn">Test your site <span aria-hidden="true">→</span></Link>
+            {SHOWCASE
+              ? <a href={REPO_URL} className="btn">Run it yourself<span className="sr-only"> (GitHub)</span> <span aria-hidden="true">→</span></a>
+              : <Link href="/" className="btn">Test your site <span aria-hidden="true">→</span></Link>}
           </div>
         </div>
       )}

@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, keyStore, refreshStatus, type Health } from "@/lib/api";
+import { api, keyStore, refreshStatus, REPO_URL, SHOWCASE, type Health } from "@/lib/api";
 
 const LINKS = [
-  { href: "/", label: "Test a site", match: ["/", "/run"] },
+  { href: "/", label: SHOWCASE ? "Home" : "Test a site", match: ["/", "/run"] },
   { href: "/replay", label: "Replays", match: ["/replay", "/compare"] },
   { href: "/history", label: "History", match: ["/history", "/saved"] },
   { href: "/evals", label: "Evals", match: ["/evals"] },
@@ -49,14 +49,18 @@ export default function Nav() {
           <span className="hidden min-[481px]:inline">Persona Lab</span>
         </Link>
         <nav aria-label="Main" className="flex flex-wrap items-center justify-end gap-0.5 max-[379px]:w-full max-[379px]:justify-between sm:gap-1">
-          {LINKS.map((l) => {
+          {LINKS.filter((l) => !SHOWCASE || l.href !== "/history").map((l) => {
             const current = l.match.includes(path);
             return (
               <Link key={l.href} href={l.href} aria-current={current ? "page" : undefined}
                 className={`${linkCls} ${current ? "!border-edge bg-ink !text-bg" : ""}`}>{l.label}</Link>
             );
           })}
-          <Settings status={status} />
+          {SHOWCASE ? (
+            <a href={REPO_URL} className="ml-1 inline-flex min-h-8 items-center gap-1.5 rounded-full border-2 border-edge bg-yellow px-3 py-1 text-[.85rem] font-bold whitespace-nowrap text-on-pop no-underline shadow-[2px_2px_0_var(--edge)] hover:-translate-y-px">
+              Run it yourself<span className="sr-only"> (GitHub)</span>
+            </a>
+          ) : <Settings status={status} />}
         </nav>
       </div>
     </header>

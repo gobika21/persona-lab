@@ -1,0 +1,164 @@
+[
+ {
+  "barriers": [
+   {
+    "detected": false,
+    "detected_by": [],
+    "id": "hotel-book-div",
+    "personas": [
+     "keyboard"
+    ],
+    "site": "hotel",
+    "summary": "'Book a room' is a div with a click handler: not reachable or operable by keyboard",
+    "wcag": "2.1.1"
+   },
+   {
+    "detected": false,
+    "detected_by": [],
+    "id": "hotel-focus-hidden",
+    "personas": [
+     "keyboard"
+    ],
+    "site": "hotel",
+    "summary": "Link focus outline removed",
+    "wcag": "2.4.7"
+   },
+   {
+    "detected": true,
+    "detected_by": [
+     "rules"
+    ],
+    "id": "hotel-img-alt",
+    "personas": [
+     "screen_reader"
+    ],
+    "site": "hotel",
+    "summary": "Hero image has no alt text",
+    "wcag": "1.1.1"
+   },
+   {
+    "detected": true,
+    "detected_by": [
+     "rules"
+    ],
+    "id": "hotel-low-contrast-hint",
+    "personas": [
+     "low_vision"
+    ],
+    "site": "hotel",
+    "summary": "Light grey 'Best rates guaranteed' text",
+    "wcag": "1.4.3"
+   },
+   {
+    "detected": false,
+    "detected_by": [],
+    "id": "hotel-status-color",
+    "personas": [
+     "color_blind"
+    ],
+    "site": "hotel",
+    "summary": "Room/restaurant availability shown only by red/green dots",
+    "wcag": "1.4.1"
+   },
+   {
+    "detected": true,
+    "detected_by": [
+     "rules"
+    ],
+    "id": "hotel-email-unlabeled",
+    "personas": [
+     "screen_reader"
+    ],
+    "site": "hotel",
+    "summary": "Email field has only a placeholder",
+    "wcag": "3.3.2"
+   },
+   {
+    "detected": true,
+    "detected_by": [
+     "rules"
+    ],
+    "id": "hotel-send-unnamed",
+    "personas": [
+     "screen_reader"
+    ],
+    "site": "hotel",
+    "summary": "Icon-only newsletter button has no accessible name",
+    "wcag": "4.1.2"
+   },
+   {
+    "detected": false,
+    "detected_by": [],
+    "id": "shop-color-only-variants",
+    "personas": [
+     "screen_reader",
+     "color_blind"
+    ],
+    "site": "shop",
+    "summary": "Mug variants are identified only by color; names and buttons are identical",
+    "wcag": "1.4.1"
+   },
+   {
+    "detected": true,
+    "detected_by": [
+     "rules"
+    ],
+    "id": "shop-cart-unnamed",
+    "personas": [
+     "screen_reader"
+    ],
+    "site": "shop",
+    "summary": "Icon-only cart link has no accessible name",
+    "wcag": "2.4.4"
+   },
+   {
+    "detected": true,
+    "detected_by": [
+     "rules"
+    ],
+    "id": "shop-tiny-text",
+    "personas": [
+     "low_vision"
+    ],
+    "site": "shop",
+    "summary": "11px light grey returns/shipping text",
+    "wcag": "1.4.3"
+   },
+   {
+    "detected": false,
+    "detected_by": [],
+    "id": "clinic-datepicker-mouse-only",
+    "personas": [
+     "keyboard"
+    ],
+    "site": "clinic",
+    "summary": "Day picker is made of divs: no keyboard access",
+    "wcag": "2.1.1"
+   },
+   {
+    "detected": false,
+    "detected_by": [],
+    "id": "clinic-error-color-only",
+    "personas": [
+     "color_blind"
+    ],
+    "site": "clinic",
+    "summary": "Form errors shown only by a red border, with no message",
+    "wcag": "1.4.1 / 3.3.1"
+   }
+  ],
+  "created_at": "2026-10-31T08:12:35+00:00",
+  "engine": "built-in rules",
+  "id": "20261031-081235-rules-only-baseline-d4e2",
+  "kind": "baseline",
+  "label": "Rules-only baseline",
+  "matcher": "keywords",
+  "metrics": {
+   "barrier_recall": 0.5,
+   "findings": 6,
+   "precision": 1.0
+  },
+  "model": null,
+  "per_persona": {}
+ }
+]

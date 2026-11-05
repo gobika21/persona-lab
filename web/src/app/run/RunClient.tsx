@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Missing from "@/components/Missing";
 import RunView from "@/components/RunView";
-import { api, refreshStatus, type Group } from "@/lib/api";
+import { api, LIVE_ONLY, refreshStatus, SHOWCASE, type Group } from "@/lib/api";
 import { History, saveRun } from "@/lib/history";
 
 export default function RunClient() {
@@ -14,6 +14,10 @@ export default function RunClient() {
 
 // A run in progress (or just finished) on the server. Polls until every agent is done, then keeps it in History.
 function LiveRun() {
+  return SHOWCASE ? <Missing title="Live tests aren't in the showcase" message={LIVE_ONLY} /> : <ServerRun />;
+}
+
+function ServerRun() {
   const id = useSearchParams().get("id") || "";
   const router = useRouter();
   const [g, setG] = useState<Group | null>(null);
